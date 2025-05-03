@@ -129,6 +129,7 @@ pub fn config_dir() -> Result<PathBuf> {
 ///
 /// This should be removed at some point in the future, once all our users have migrated
 /// - MacOS: `$HOME/Library/Application Support/codewhisperer`
+/// - Windows: `%LOCALAPPDATA%\codewhisperer`
 pub fn old_fig_data_dir() -> Result<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(unix)] {
@@ -136,7 +137,9 @@ pub fn old_fig_data_dir() -> Result<PathBuf> {
                 .ok_or(DirectoryError::NoHomeDirectory)?
                 .join("codewhisperer"))
         } else if #[cfg(windows)] {
-            Ok(fig_dir()?.join("userdata"))
+            Ok(dirs::data_local_dir()
+                .ok_or(DirectoryError::NoHomeDirectory)?
+                .join("codewhisperer"))
         }
     }
 }
@@ -145,6 +148,7 @@ pub fn old_fig_data_dir() -> Result<PathBuf> {
 ///
 /// - Linux: `$XDG_DATA_HOME/amazon-q` or `$HOME/.local/share/amazon-q`
 /// - MacOS: `$HOME/Library/Application Support/amazon-q`
+/// - Windows: `%LOCALAPPDATA%\amazon-q`
 pub fn fig_data_dir() -> Result<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(unix)] {
@@ -152,7 +156,9 @@ pub fn fig_data_dir() -> Result<PathBuf> {
                 .ok_or(DirectoryError::NoHomeDirectory)?
                 .join("amazon-q"))
         } else if #[cfg(windows)] {
-            Ok(fig_dir()?.join("userdata"))
+            Ok(dirs::data_local_dir()
+                .ok_or(DirectoryError::NoHomeDirectory)?
+                .join("amazon-q"))
         }
     }
 }
@@ -183,6 +189,7 @@ pub fn local_data_dir<Ctx: FsProvider + EnvProvider + PlatformProvider>(ctx: &Ct
 ///
 /// - Linux: `$XDG_CACHE_HOME/amazon-q` or `$HOME/.cache/amazon-q`
 /// - MacOS: `$HOME/Library/Caches/amazon-q`
+/// - Windows: `%LOCALAPPDATA%\amazon-q\cache`
 pub fn cache_dir() -> Result<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(unix)] {
@@ -190,7 +197,10 @@ pub fn cache_dir() -> Result<PathBuf> {
                 .ok_or(DirectoryError::NoHomeDirectory)?
                 .join("amazon-q"))
         } else if #[cfg(windows)] {
-            Ok(fig_dir()?.join("cache"))
+            Ok(dirs::data_local_dir()
+                .ok_or(DirectoryError::NoHomeDirectory)?
+                .join("amazon-q")
+                .join("cache"))
         }
     }
 }
@@ -234,12 +244,13 @@ pub fn runtime_dir() -> Result<PathBuf> {
 ///
 /// - Linux: $XDG_RUNTIME_DIR/cwrun
 /// - MacOS: $TMPDIR/cwrun
+/// - Windows: %TEMP%\amazon-q\sockets
 pub fn sockets_dir() -> Result<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(unix)] {
             Ok(runtime_dir()?.join(RUNTIME_DIR_NAME))
         } else if #[cfg(windows)] {
-            Ok(fig_dir()?.join("sockets"))
+            Ok(std::env::temp_dir().join("amazon-q").join("sockets"))
         }
     }
 }
@@ -387,12 +398,17 @@ pub fn figterm_socket_path(session_id: impl Display) -> Result<PathBuf> {
 ///
 /// - MacOS: "/Applications/Amazon Q.app/Contents/Resources"
 /// - Linux: "/usr/share/fig"
+/// - Windows: "%PROGRAMFILES%\Amazon\Amazon Q\resources"
 pub fn resources_path() -> Result<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(all(unix, not(target_os = "macos")))] {
             Ok(std::path::Path::new("/usr/share/fig").into())
         } else if #[cfg(target_os = "macos")] {
             Ok(crate::app_bundle_path().join(crate::macos::BUNDLE_CONTENTS_RESOURCE_PATH))
+        } else if #[cfg(windows)] {
+            // For Windows, we'll use a standard program files location
+            let program_files = std::env::var("PROGRAMFILES").unwrap_or_else(|_| "C:\\Program Files".to_string());
+            Ok(PathBuf::from(program_files).join("Amazon").join("Amazon Q").join("resources"))
         }
     }
 }
@@ -419,12 +435,13 @@ pub fn resources_path_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) -> Res
 ///
 /// - MacOS: "/Applications/Amazon Q.app/Contents/Resources/manifest.json"
 /// - Linux: "/usr/share/fig/manifest.json"
+/// - Windows: "%PROGRAMFILES%\Amazon\Amazon Q\resources\manifest.json"
 pub fn manifest_path() -> Result<PathBuf> {
     cfg_if::cfg_if! {
         if #[cfg(unix)] {
             Ok(resources_path()?.join("manifest.json"))
         } else if #[cfg(target_os = "windows")] {
-            Ok(managed_binaries_dir()?.join("manifest.json"))
+            Ok(resources_path()?.join("manifest.json"))
         }
     }
 }

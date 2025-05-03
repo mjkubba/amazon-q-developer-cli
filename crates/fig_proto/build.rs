@@ -67,17 +67,55 @@ fn download_protoc() {
                 return;
             }
         }
+        
+        // If protoc is not in PATH, download it
+        let download_url = format!(
+            "https://github.com/protocolbuffers/protobuf/releases/download/v{protoc_version}/protoc-{protoc_version}-{os}-{arch}.zip",
+            protoc_version = protoc_version,
+            os = os,
+            arch = arch
+        );
+        
+        println!("Downloading protoc from: {}", download_url);
+        
+        // Use PowerShell to download the file
+        let mut download_command = Command::new("powershell");
+        download_command
+            .arg("-Command")
+            .arg(format!(
+                "Invoke-WebRequest -Uri '{}' -OutFile '{}'",
+                download_url,
+                tmp_folder.path().join("protoc.zip").display()
+            ));
+        
+        if !download_command.spawn().unwrap().wait().unwrap().success() {
+            eprintln!("Failed to download protoc, trying to use locally installed version");
+            // Try to find protoc in common installation locations
+            for path in [
+                "C:\\protobuf\\bin\\protoc.exe", 
+                "C:\\Program Files\\protobuf\\bin\\protoc.exe",
+                "I:\\workspace\\protobuf\\bin\\protoc.exe"
+            ] {
+                if std::path::Path::new(path).exists() {
+                    println!("Found protoc at: {}", path);
+                    std::env::set_var("PROTOC", path);
+                    return;
+                }
+            }
+            panic!("Could not find protoc. Please install it and add it to PATH.");
+        }
+    } else {
+        // For non-Windows platforms, use curl
+        let mut download_command = Command::new("curl");
+        download_command
+            .arg("-Lf")
+            .arg(format!(
+                "https://github.com/protocolbuffers/protobuf/releases/download/v{protoc_version}/protoc-{protoc_version}-{os}-{arch}.zip"
+            ))
+            .arg("-o")
+            .arg(tmp_folder.path().join("protoc.zip"));
+        assert!(download_command.spawn().unwrap().wait().unwrap().success());
     }
-
-    let mut download_command = Command::new("curl");
-    download_command
-        .arg("-Lf")
-        .arg(format!(
-            "https://github.com/protocolbuffers/protobuf/releases/download/v{protoc_version}/protoc-{protoc_version}-{os}-{arch}.zip"
-        ))
-        .arg("-o")
-        .arg(tmp_folder.path().join("protoc.zip"));
-    assert!(download_command.spawn().unwrap().wait().unwrap().success());
 
     let checksum_output = if cfg!(target_os = "windows") {
         // Skip checksum verification on Windows for now

@@ -325,6 +325,59 @@ impl Fs {
     ///
     /// The `link` path will be a symbolic link pointing to the `original` path.
     ///
+    /// Windows implementation that handles both file and directory symlinks.
+    #[cfg(windows)]
+    pub async fn symlink(&self, original: impl AsRef<Path>, link: impl AsRef<Path>) -> io::Result<()> {
+        use inner::Inner;
+        use std::os::windows::fs::{symlink_file, symlink_dir};
+        
+        match &self.0 {
+            Inner::Real => {
+                let original_path = original.as_ref().to_path_buf();
+                let link_path = link.as_ref().to_path_buf();
+                
+                // Check if original is a directory or file
+                let metadata = tokio::fs::metadata(&original_path).await?;
+                
+                if metadata.is_dir() {
+                    // Create directory symlink
+                    tokio::task::spawn_blocking(move || {
+                        symlink_dir(original_path, link_path)
+                    }).await.unwrap()
+                } else {
+                    // Create file symlink
+                    tokio::task::spawn_blocking(move || {
+                        symlink_file(original_path, link_path)
+                    }).await.unwrap()
+                }
+            },
+            Inner::Chroot(root) => {
+                let original_path = append(root.path(), original.as_ref()).to_path_buf();
+                let link_path = append(root.path(), link.as_ref()).to_path_buf();
+                
+                // Check if original is a directory or file
+                let metadata = tokio::fs::metadata(&original_path).await?;
+                
+                if metadata.is_dir() {
+                    // Create directory symlink
+                    tokio::task::spawn_blocking(move || {
+                        symlink_dir(original_path, link_path)
+                    }).await.unwrap()
+                } else {
+                    // Create file symlink
+                    tokio::task::spawn_blocking(move || {
+                        symlink_file(original_path, link_path)
+                    }).await.unwrap()
+                }
+            },
+            Inner::Fake(_) => panic!("unimplemented"),
+        }
+    }
+
+    /// Creates a new symbolic link on the filesystem.
+    ///
+    /// The `link` path will be a symbolic link pointing to the `original` path.
+    ///
     /// This is a proxy to [`std::os::unix::fs::symlink`].
     #[cfg(unix)]
     pub fn symlink_sync(&self, original: impl AsRef<Path>, link: impl AsRef<Path>) -> io::Result<()> {
@@ -332,6 +385,51 @@ impl Fs {
         match &self.0 {
             Inner::Real => std::os::unix::fs::symlink(original, link),
             Inner::Chroot(root) => std::os::unix::fs::symlink(append(root.path(), original), append(root.path(), link)),
+            Inner::Fake(_) => panic!("unimplemented"),
+        }
+    }
+
+    /// Creates a new symbolic link on the filesystem.
+    ///
+    /// The `link` path will be a symbolic link pointing to the `original` path.
+    ///
+    /// Windows implementation that handles both file and directory symlinks.
+    #[cfg(windows)]
+    pub fn symlink_sync(&self, original: impl AsRef<Path>, link: impl AsRef<Path>) -> io::Result<()> {
+        use inner::Inner;
+        use std::os::windows::fs::{symlink_file, symlink_dir};
+        
+        match &self.0 {
+            Inner::Real => {
+                let original_path = original.as_ref().to_path_buf();
+                let link_path = link.as_ref().to_path_buf();
+                
+                // Check if original is a directory or file
+                let metadata = std::fs::metadata(&original_path)?;
+                
+                if metadata.is_dir() {
+                    // Create directory symlink
+                    symlink_dir(original_path, link_path)
+                } else {
+                    // Create file symlink
+                    symlink_file(original_path, link_path)
+                }
+            },
+            Inner::Chroot(root) => {
+                let original_path = append(root.path(), original.as_ref()).to_path_buf();
+                let link_path = append(root.path(), link.as_ref()).to_path_buf();
+                
+                // Check if original is a directory or file
+                let metadata = std::fs::metadata(&original_path)?;
+                
+                if metadata.is_dir() {
+                    // Create directory symlink
+                    symlink_dir(original_path, link_path)
+                } else {
+                    // Create file symlink
+                    symlink_file(original_path, link_path)
+                }
+            },
             Inner::Fake(_) => panic!("unimplemented"),
         }
     }
@@ -353,6 +451,27 @@ impl Fs {
         match &self.0 {
             Inner::Real => fs::symlink_metadata(path).await,
             Inner::Chroot(root) => fs::symlink_metadata(append(root.path(), path)).await,
+            Inner::Fake(_) => panic!("unimplemented"),
+        }
+    }
+
+    /// Query the metadata about a file without following symlinks.
+    ///
+    /// Windows implementation that uses regular metadata since Windows handles symlinks differently.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error in the following situations, but is not
+    /// limited to just these cases:
+    ///
+    /// * The user lacks permissions to perform `metadata` call on `path`.
+    /// * `path` does not exist.
+    #[cfg(windows)]
+    pub async fn symlink_metadata(&self, path: impl AsRef<Path>) -> io::Result<std::fs::Metadata> {
+        use inner::Inner;
+        match &self.0 {
+            Inner::Real => fs::metadata(path).await,
+            Inner::Chroot(root) => fs::metadata(append(root.path(), path)).await,
             Inner::Fake(_) => panic!("unimplemented"),
         }
     }

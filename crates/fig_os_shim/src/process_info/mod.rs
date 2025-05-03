@@ -32,6 +32,10 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub use windows::*;
 
+#[cfg(test)]
+#[cfg(target_os = "windows")]
+mod windows_test;
+
 /// Represents the interface to accessing info about the currently running process tree.
 #[derive(Debug, Clone)]
 pub struct ProcessInfo(inner::Inner);

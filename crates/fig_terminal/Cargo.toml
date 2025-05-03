@@ -1,0 +1,28 @@
+[package]
+name = "fig_terminal"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+publish.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+cfg-if.workspace = true
+eyre.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["full"] }
+
+# Platform-specific dependencies
+crossterm = { workspace = true, optional = true }
+tuikit = { workspace = true, optional = true }
+
+[features]
+default = ["auto-terminal"]
+auto-terminal = ["unix-terminal", "windows-terminal"]
+unix-terminal = ["tuikit"]
+windows-terminal = ["crossterm"]
+minimal = []  # No terminal UI
+
+[lints]
+workspace = true

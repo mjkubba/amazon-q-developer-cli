@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "no-tuikit", allow(unused_imports))]
+
 pub mod cli;
 mod command;
 mod consts;
@@ -14,6 +16,11 @@ mod token_counter;
 mod tool_manager;
 mod tools;
 pub mod util;
+mod windows_selector;
+mod minimal_selector;
+
+// Rest of the file remains unchanged
+
 
 use std::borrow::Cow;
 use std::collections::{

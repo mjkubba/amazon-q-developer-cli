@@ -7,101 +7,67 @@ publish.workspace = true
 version.workspace = true
 license.workspace = true
 
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+camino = { workspace = true }
+cfg-if = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+color-print = { workspace = true }
+console = { workspace = true }
+crossterm = { workspace = true, optional = true }
+dirs = { workspace = true }
+eyre = { workspace = true }
+fig_os_shim = { path = "../fig_os_shim" }
+fig_proto = { path = "../fig_proto" }
+fig_util = { path = "../fig_util" }
+futures = { workspace = true }
+http = { workspace = true }
+indicatif = { workspace = true }
+itertools = { workspace = true }
+lazy_static = { workspace = true }
+mcp_client = { path = "../mcp_client" }
+once_cell = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+rusqlite = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
+skim = { workspace = true, optional = true }
+strum = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
+tuikit = { workspace = true, optional = true }
+url = { workspace = true }
+uuid = { workspace = true }
+which = { workspace = true }
+
+[features]
+default = ["auto-terminal"]
+auto-terminal = ["unix-terminal", "windows-terminal"]
+unix-terminal = ["skim", "tuikit"]
+windows-terminal = ["crossterm"]
+minimal = []  # No terminal UI
+
 [lints]
 workspace = true
 
-[features]
-default = []
-wayland = ["arboard/wayland-data-control"]
-
-[dependencies]
-amzn-codewhisperer-client.workspace = true
-amzn-codewhisperer-streaming-client.workspace = true
-anstream.workspace = true
-appkit-nsworkspace-bindings.workspace = true
-arboard = { version = "3.5.0", default-features = false }
-async-trait.workspace = true
-base64.workspace = true
-bitflags.workspace = true
-bytes.workspace = true
-cfg-if.workspace = true
-clap.workspace = true
-clap_complete = "4.5.46"
-clap_complete_fig = "4.4.0"
-color-eyre = "0.6.2"
-color-print = "0.3.5"
-convert_case.workspace = true
-crossterm.workspace = true
-ctrlc = "3.4.6"
-dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
-eyre.workspace = true
-fig_api_client.workspace = true
-fig_auth.workspace = true
-fig_diagnostic.workspace = true
-fig_install.workspace = true
-fig_integrations.workspace = true
-fig_ipc.workspace = true
-fig_log.workspace = true
-fig_os_shim.workspace = true
-fig_proto.workspace = true
-fig_remote_ipc.workspace = true
-fig_request.workspace = true
-fig_settings.workspace = true
-fig_telemetry.workspace = true
-fig_telemetry_core.workspace = true
-fig_util.workspace = true
-flume.workspace = true
-futures.workspace = true
-glob.workspace = true
-globset.workspace = true
-indicatif.workspace = true
-indoc.workspace = true
-mcp_client.workspace = true
-mimalloc.workspace = true
-owo-colors = "4.2.0"
-parking_lot.workspace = true
-q_chat.workspace = true
-rand.workspace = true
-regex.workspace = true
-semver.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-spinners.workspace = true
-sysinfo.workspace = true
-tempfile.workspace = true
-thiserror.workspace = true
-time.workspace = true
-tokio-tungstenite.workspace = true
-tokio-util.workspace = true
-tokio.workspace = true
-tracing-subscriber.workspace = true
-tracing.workspace = true
-unicode-width.workspace = true
-url.workspace = true
-uuid.workspace = true
-walkdir.workspace = true
-which.workspace = true
-whoami.workspace = true
-
-[target.'cfg(unix)'.dependencies]
-nix.workspace = true
-
-[target.'cfg(target_os = "macos")'.dependencies]
-macos-utils = { path = "../macos-utils" }
-objc2.workspace = true
-objc2-app-kit = { workspace = true, features = ["NSRunningApplication"] }
-objc2-foundation.workspace = true
-
-[target.'cfg(target_os = "linux")'.dependencies]
-dbus = { path = "../dbus" }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.58.0", features = ["Win32_System_Threading"] }
-winapi = { version = "0.3", features = ["consoleapi"] }
-
 [dev-dependencies]
-assert_cmd = "2.0"
-criterion = "0.5.1"
-insta.workspace = true
-paste = "1.0.11"
-predicates = "3.0"
+assert_cmd = { workspace = true }
+insta = { workspace = true }
+predicates = { workspace = true }
+rstest = { workspace = true }
+serial_test = { workspace = true }
+test-case = { workspace = true }
+test-context = { workspace = true }

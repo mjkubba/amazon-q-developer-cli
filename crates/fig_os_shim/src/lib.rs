@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod fs_test;
+
 mod env;
 mod fs;
 mod platform;

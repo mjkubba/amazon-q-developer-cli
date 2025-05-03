@@ -11,8 +11,13 @@ use std::sync::{
 };
 use std::time::Duration;
 
+// Platform-specific imports
+#[cfg(unix)]
 use nix::sys::signal::Signal;
+#[cfg(unix)]
 use nix::unistd::Pid;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use serde::{
     Deserialize,
     Serialize,
@@ -115,12 +120,17 @@ impl From<(tokio::time::error::Elapsed, String)> for ClientError {
     }
 }
 
+#[cfg(unix)]
+type ProcessId = nix::unistd::Pid;
+#[cfg(windows)]
+type ProcessId = u32;
+
 #[derive(Debug)]
 pub struct Client<T: Transport> {
     server_name: String,
     transport: Arc<T>,
     timeout: u64,
-    server_process_id: Option<Pid>,
+    server_process_id: Option<ProcessId>,
     client_info: serde_json::Value,
     current_id: Arc<AtomicU64>,
     pub prompt_gets: Arc<SyncRwLock<HashMap<String, PromptGet>>>,
@@ -159,9 +169,15 @@ impl Client<StdioTransport> {
             command
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .process_group(0)
-                .envs(std::env::vars());
+                .stderr(Stdio::piped());
+                
+            #[cfg(unix)]
+            command.process_group(0);
+                
+            #[cfg(windows)]
+            command.creation_flags(0x00000010); // CREATE_NEW_PROCESS_GROUP
+                
+            command.envs(std::env::vars());
             if let Some(env) = env {
                 for (env_name, env_value) in env {
                     command.env(env_name, env_value);
@@ -169,14 +185,21 @@ impl Client<StdioTransport> {
             }
             command.args(args).spawn()?
         };
-        let server_process_id = child.id().ok_or(ClientError::MissingProcessId)?;
-        #[allow(clippy::map_err_ignore)]
-        let server_process_id = Pid::from_raw(
-            server_process_id
-                .try_into()
-                .map_err(|_| ClientError::MissingProcessId)?,
-        );
-        let server_process_id = Some(server_process_id);
+        let process_id = child.id().ok_or(ClientError::MissingProcessId)?;
+        
+        #[cfg(unix)]
+        let server_process_id = {
+            #[allow(clippy::map_err_ignore)]
+            let pid = Pid::from_raw(
+                process_id
+                    .try_into()
+                    .map_err(|_| ClientError::MissingProcessId)?,
+            );
+            Some(pid)
+        };
+        
+        #[cfg(windows)]
+        let server_process_id = Some(process_id);
         let transport = Arc::new(transport::stdio::JsonRpcStdioTransport::client(child)?);
         Ok(Self {
             server_name,
@@ -198,8 +221,16 @@ where
     // IF the servers are implemented well, they will shutdown once the pipe closes.
     // This drop trait is here as a fail safe to ensure we don't leave behind any orphans.
     fn drop(&mut self) {
+        #[cfg(unix)]
         if let Some(process_id) = self.server_process_id {
             let _ = nix::sys::signal::kill(process_id, Signal::SIGTERM);
+        }
+        
+        #[cfg(windows)]
+        if let Some(process_id) = self.server_process_id {
+            // On Windows, we would use TerminateProcess, but since we're storing just the ID
+            // and not a handle, we'll rely on the pipe closing to terminate the process
+            // A more robust implementation would store the process handle
         }
     }
 }

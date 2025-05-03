@@ -9,6 +9,7 @@ use clap::error::{
     ContextKind,
     ErrorKind,
 };
+#[cfg(not(feature = "minimal"))]
 use crossterm::style::Stylize;
 use eyre::Result;
 use fig_log::get_log_level_max;
@@ -45,11 +46,21 @@ fn main() -> Result<ExitCode> {
                 });
 
             if unknown_arg {
-                eprintln!(
-                    "\nThis command may be valid in newer versions of the {PRODUCT_NAME} CLI. Try running {} {}.",
-                    CLI_BINARY_NAME.magenta(),
-                    "update".magenta()
-                );
+                #[cfg(not(feature = "minimal"))]
+                {
+                    eprintln!(
+                        "\nThis command may be valid in newer versions of the {PRODUCT_NAME} CLI. Try running {} {}.",
+                        CLI_BINARY_NAME.magenta(),
+                        "update".magenta()
+                    );
+                }
+                
+                #[cfg(feature = "minimal")]
+                {
+                    eprintln!(
+                        "\nThis command may be valid in newer versions of the {PRODUCT_NAME} CLI. Try running {CLI_BINARY_NAME} update."
+                    );
+                }
             }
 
             return Ok(ExitCode::from(err.exit_code().try_into().unwrap_or(2)));
@@ -76,9 +87,25 @@ fn main() -> Result<ExitCode> {
         Ok(exit_code) => Ok(exit_code),
         Err(err) => {
             if verbose || get_log_level_max() > LevelFilter::INFO {
-                eprintln!("{} {err:?}", "error:".bold().red());
+                #[cfg(not(feature = "minimal"))]
+                {
+                    eprintln!("{} {err:?}", "error:".bold().red());
+                }
+                
+                #[cfg(feature = "minimal")]
+                {
+                    eprintln!("error: {err:?}");
+                }
             } else {
-                eprintln!("{} {err}", "error:".bold().red());
+                #[cfg(not(feature = "minimal"))]
+                {
+                    eprintln!("{} {err}", "error:".bold().red());
+                }
+                
+                #[cfg(feature = "minimal")]
+                {
+                    eprintln!("error: {err}");
+                }
             }
             Ok(ExitCode::FAILURE)
         },

@@ -66,6 +66,9 @@ pub enum TargetTriple {
     #[serde(rename = "aarch64-unknown-linux-musl")]
     #[strum(serialize = "aarch64-unknown-linux-musl")]
     AArch64UnknownLinuxMusl,
+    #[serde(rename = "x86_64-pc-windows-msvc")]
+    #[strum(serialize = "x86_64-pc-windows-msvc")]
+    X86_64PcWindowsMsvc,
     #[strum(default)]
     Other(String),
 }
@@ -83,6 +86,8 @@ impl TargetTriple {
                 TargetTriple::X86_64UnknownLinuxMusl
             } else if #[cfg(all(target_os = "linux", target_env = "musl", target_arch = "aarch64"))] {
                 TargetTriple::AArch64UnknownLinuxMusl
+            } else if #[cfg(all(target_os = "windows", target_arch = "x86_64"))] {
+                TargetTriple::X86_64PcWindowsMsvc
             } else {
                 compile_error!("unknown target")
             }

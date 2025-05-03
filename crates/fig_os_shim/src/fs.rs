@@ -1,7 +1,16 @@
 use std::collections::HashMap;
 use std::fs::Permissions;
 use std::io;
-use std::os::unix::ffi::OsStrExt;
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(unix)] {
+        use std::os::unix::ffi::OsStrExt;
+    } else if #[cfg(windows)] {
+        // Windows equivalent imports
+        use std::os::windows::ffi::OsStrExt as WindowsOsStrExt;
+    }
+}
 use std::path::{
     Path,
     PathBuf,
@@ -273,10 +282,18 @@ impl Fs {
     /// will be returned if the user doesn't have permission to perform a metadata operation on
     /// `path`.
     pub async fn symlink_exists(&self, path: impl AsRef<Path>) -> bool {
-        match self.symlink_metadata(path).await {
-            Ok(_) => true,
-            Err(err) if err.kind() != std::io::ErrorKind::NotFound => true,
-            Err(_) => false,
+        cfg_if! {
+            if #[cfg(unix)] {
+                match self.symlink_metadata(path).await {
+                    Ok(_) => true,
+                    Err(err) if err.kind() != std::io::ErrorKind::NotFound => true,
+                    Err(_) => false,
+                }
+            } else {
+                // Windows implementation - simplified for now
+                // Windows has limited symlink support, so we'll just check if the path exists
+                self.exists(path)
+            }
         }
     }
 
@@ -421,20 +438,46 @@ impl Shim for Fs {
 /// - if `b` is an absolute path, then the resulting path will equal `/a/b`
 /// - if the prefix of `b` contains some `n` copies of a, then the resulting path will equal `/a/b`
 fn append(a: impl AsRef<Path>, b: impl AsRef<Path>) -> PathBuf {
-    use std::ffi::OsString;
-    use std::os::unix::ffi::OsStringExt;
+    cfg_if! {
+        if #[cfg(unix)] {
+            use std::ffi::OsString;
+            use std::os::unix::ffi::OsStringExt;
 
-    // Have to use byte slices since rust seems to always append
-    // a forward slash at the end of a path...
-    let a = a.as_ref().as_os_str().as_bytes();
-    let mut b = b.as_ref().as_os_str().as_bytes();
-    while b.starts_with(a) {
-        b = b.strip_prefix(a).unwrap();
+            // Have to use byte slices since rust seems to always append
+            // a forward slash at the end of a path...
+            let a = a.as_ref().as_os_str().as_bytes();
+            let mut b = b.as_ref().as_os_str().as_bytes();
+            while b.starts_with(a) {
+                b = b.strip_prefix(a).unwrap();
+            }
+            while b.starts_with(b"/") {
+                b = b.strip_prefix(b"/").unwrap();
+            }
+            PathBuf::from(OsString::from(String::from_utf8_lossy(a).to_string()))
+                .join(PathBuf::from(OsString::from(String::from_utf8_lossy(b).to_string())))
+        } else {
+            // Windows implementation
+            let a_path = a.as_ref();
+            let b_path = b.as_ref();
+            
+            // Handle absolute paths
+            if b_path.is_absolute() {
+                let b_str = b_path.to_string_lossy().to_string();
+                let a_str = a_path.to_string_lossy().to_string();
+                
+                // Remove drive letter if present
+                let b_without_drive = if b_str.chars().nth(1) == Some(':') {
+                    PathBuf::from(&b_str[2..])
+                } else {
+                    b_path.to_path_buf()
+                };
+                
+                a_path.join(b_without_drive)
+            } else {
+                a_path.join(b_path)
+            }
+        }
     }
-    while b.starts_with(b"/") {
-        b = b.strip_prefix(b"/").unwrap();
-    }
-    PathBuf::from(OsString::from_vec(a.to_vec())).join(PathBuf::from(OsString::from_vec(b.to_vec())))
 }
 
 #[cfg(test)]

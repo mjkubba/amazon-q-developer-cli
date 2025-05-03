@@ -1,9 +1,9 @@
-use std::ffi::OsString;
 use std::sync::{
     Arc,
     Mutex,
 };
 
+use sysinfo::{System, SystemExt, ProcessExt};
 use crate::Shim;
 
 #[derive(Debug, Clone, Default)]
@@ -39,8 +39,9 @@ impl SysInfo {
         use inner::Inner;
         match &self.0 {
             Inner::Real => {
-                let system = sysinfo::System::new_all();
-                let is_running = system.processes_by_name(&OsString::from(name)).next().is_some();
+                let mut system = System::new_all();
+                system.refresh_all();
+                let is_running = system.processes_by_name(name).next().is_some();
                 is_running
             },
             Inner::Fake(fake) => fake.lock().unwrap().process_names.contains(name),

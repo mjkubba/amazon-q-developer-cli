@@ -480,3 +480,30 @@ We've made additional progress on implementing Windows native support:
 3. **Create Windows Installer**:
    - Set up Windows MSI installer creation
    - Test installation and uninstallation on Windows
+## Windows Build Script
+
+We've created a basic Windows build script to help with building the project on Windows. This script is located at `/mnt/i/workspace/amazon-q-developer-cli/build-scripts/windows_build.py` and provides the following functionality:
+
+1. **Building the Project**:
+   - Builds the project with the specified target (default: x86_64-pc-windows-msvc)
+   - Supports both debug and release builds
+
+2. **Creating an Installer** (placeholder):
+   - Contains placeholder code for creating a Windows installer
+   - In a real implementation, this would use WiX Toolset or similar
+
+### Usage
+
+```bash
+python build-scripts/windows_build.py --release --target x86_64-pc-windows-msvc --create-installer --version 0.1.0
+```
+
+### Next Steps for the Build Script
+
+1. **Implement Actual Installer Creation**:
+   - Add WiX Toolset integration for MSI creation
+   - Define installer UI and components
+
+2. **Add CI/CD Integration**:
+   - Set up GitHub Actions workflow for Windows builds
+   - Automate installer creation and testing

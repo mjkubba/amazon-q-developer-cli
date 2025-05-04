@@ -89,9 +89,6 @@ use flume::{
     Receiver,
     Sender,
 };
-#[cfg(unix)]
-#[cfg(unix)]
-use nix::unistd::execvp;
 use portable_pty::PtySize;
 use tokio::io::{
     self,
@@ -531,6 +528,12 @@ fn figterm_main(command: Option<&[String]>) -> Result<()> {
         let pid = nix::unistd::getpid();
         
         #[cfg(windows)]
+        let pid = get_process_id();
+        logger::stdio_debug_log(format!("Parent pid: {pid}"));
+    }
+    
+    #[cfg(windows)]
+    {
         let pid = get_process_id();
         logger::stdio_debug_log(format!("Parent pid: {pid}"));
     }
@@ -1004,6 +1007,11 @@ fn main() {
                 // capture_anyhow(&err);
                 logger::stdio_debug_log(err.to_string());
             }
+            
+            #[cfg(windows)]
+            if let Err(err) = launch_windows_shell(command) {
+                logger::stdio_debug_log(err.to_string());
+            }
         },
     }
 }
@@ -1033,3 +1041,30 @@ mod tests {
     fn get_process_id() -> u32 {
         unsafe { winapi::um::processthreadsapi::GetCurrentProcessId() }
     }
+#[cfg(windows)]
+fn launch_windows_shell(command: Option<&str>) -> Result<()> {
+    use std::process::Command;
+    
+    let shell = command.unwrap_or_else(|| {
+        if cfg!(target_os = "windows") {
+            "cmd.exe"
+        } else {
+            "powershell.exe"
+        }
+    });
+    
+    let mut cmd = Command::new(shell);
+    
+    // Add any arguments if needed
+    if shell == "powershell.exe" {
+        cmd.arg("-NoLogo");
+    }
+    
+    let status = cmd.status()?;
+    
+    if !status.success() {
+        return Err(anyhow!("Shell exited with non-zero status: {}", status));
+    }
+    
+    Ok(())
+}

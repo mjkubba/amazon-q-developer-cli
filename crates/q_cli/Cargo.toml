@@ -14,13 +14,28 @@ base64 = { workspace = true }
 camino = { workspace = true }
 cfg-if = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
+clap_complete = "4.4.6"
+clap_complete_fig = "4.4.0"
 color-print = { workspace = true }
+color-eyre = "0.6.2"
 console = { workspace = true }
-crossterm = { workspace = true, optional = true }
+crossterm = { workspace = true }
+ctrlc = "3.4.1"
+dialoguer = "0.11.0"
 dirs = { workspace = true }
 eyre = { workspace = true }
+fig_api_client = { path = "../fig_api_client" }
+fig_auth = { path = "../fig_auth" }
+fig_install = { path = "../fig_install" }
+fig_integrations = { path = "../fig_integrations" }
+fig_ipc = { path = "../fig_ipc" }
+fig_log = { path = "../fig_log" }
 fig_os_shim = { path = "../fig_os_shim" }
 fig_proto = { path = "../fig_proto" }
+fig_remote_ipc = { path = "../fig_remote_ipc" }
+fig_settings = { path = "../fig_settings" }
+fig_telemetry = { path = "../fig_telemetry" }
+fig_terminal = { path = "../fig_terminal" }
 fig_util = { path = "../fig_util" }
 futures = { workspace = true }
 http = { workspace = true }
@@ -28,7 +43,9 @@ indicatif = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
 mcp_client = { path = "../mcp_client" }
+mimalloc = { version = "0.1.39", default-features = false, optional = true }
 once_cell = { workspace = true }
+q_chat = { path = "../q_chat" }
 rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
@@ -37,27 +54,34 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sha2 = { workspace = true }
-skim = { workspace = true, optional = true }
 strum = { workspace = true }
 tempfile = { workspace = true }
+termwiz = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+tokio-tungstenite = "0.21.0"
 tokio-util = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 tracing-appender = { workspace = true }
 tracing-subscriber = { workspace = true }
-tuikit = { workspace = true, optional = true }
 url = { workspace = true }
 uuid = { workspace = true }
 which = { workspace = true }
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58.0", features = [
+    "Win32_System_Console",
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
 [features]
 default = ["auto-terminal"]
 auto-terminal = ["unix-terminal", "windows-terminal"]
-unix-terminal = ["skim", "tuikit"]
-windows-terminal = ["crossterm"]
+unix-terminal = ["mimalloc"]
+windows-terminal = []
 minimal = []  # No terminal UI
 
 [lints]

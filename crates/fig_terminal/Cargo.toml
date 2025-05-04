@@ -8,20 +8,16 @@ version.workspace = true
 license.workspace = true
 
 [dependencies]
-cfg-if.workspace = true
-eyre.workspace = true
+anyhow.workspace = true
+crossterm.workspace = true
+termwiz.workspace = true
 thiserror.workspace = true
-tokio = { workspace = true, features = ["full"] }
-
-# Platform-specific dependencies
-crossterm = { workspace = true, optional = true }
-tuikit = { workspace = true, optional = true }
 
 [features]
 default = ["auto-terminal"]
 auto-terminal = ["unix-terminal", "windows-terminal"]
-unix-terminal = ["tuikit"]
-windows-terminal = ["crossterm"]
+unix-terminal = []
+windows-terminal = []
 minimal = []  # No terminal UI
 
 [lints]

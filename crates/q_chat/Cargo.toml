@@ -7,63 +7,70 @@ publish.workspace = true
 version.workspace = true
 license.workspace = true
 
+[dependencies]
+amzn-codewhisperer-streaming-client = { path = "../amzn-codewhisperer-streaming-client" }
+amzn-qdeveloper-streaming-client = { path = "../amzn-qdeveloper-streaming-client" }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+base64 = { workspace = true }
+camino = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+color-print = { workspace = true }
+console = { workspace = true }
+crossterm = { workspace = true }
+dirs = { workspace = true }
+eyre = { workspace = true }
+fig_api_client = { path = "../fig_api_client" }
+fig_auth = { path = "../fig_auth" }
+fig_os_shim = { path = "../fig_os_shim" }
+fig_proto = { path = "../fig_proto" }
+fig_settings = { path = "../fig_settings" }
+fig_telemetry = { path = "../fig_telemetry" }
+fig_terminal = { path = "../fig_terminal" }
+fig_util = { path = "../fig_util" }
+futures = { workspace = true }
+http = { workspace = true }
+itertools = { workspace = true }
+lazy_static = { workspace = true }
+once_cell = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+rustyline = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sha2 = { workspace = true }
+tempfile = { workspace = true }
+termwiz = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+which = { workspace = true }
+
 [features]
 default = ["auto-terminal"]
 auto-terminal = ["unix-terminal", "windows-terminal"]
-unix-terminal = ["skim", "tuikit"]
-windows-terminal = ["windows"]
-minimal = ["no-tuikit"]
+unix-terminal = []
+windows-terminal = []
+minimal = []  # No terminal UI
 no-tuikit = []
-
-[dependencies]
-anstream.workspace = true
-aws-smithy-types = "1.2.10"
-bstr.workspace = true
-clap.workspace = true
-color-print.workspace = true
-convert_case.workspace = true
-crossterm.workspace = true
-semver.workspace = true
-eyre.workspace = true
-fig_api_client.workspace = true
-fig_auth.workspace = true
-fig_diagnostic.workspace = true
-fig_os_shim.workspace = true
-fig_install.workspace = true
-fig_settings.workspace = true
-fig_telemetry.workspace = true
-fig_util.workspace = true
-futures.workspace = true
-glob.workspace = true
-mcp_client.workspace = true
-rand.workspace = true
-regex.workspace = true
-rustyline = { version = "15.0.0", features = ["derive", "custom-bindings"] }
-serde.workspace = true
-serde_json.workspace = true
-shell-color.workspace = true
-shell-words = "1.1"
-shellexpand.workspace = true
-shlex.workspace = true
-similar.workspace = true
-skim = { version = "0.16.2", optional = true }
-spinners.workspace = true
-syntect = { version = "5.2.0", features = [ "default-syntaxes", "default-themes" ]}
-tempfile.workspace = true
-thiserror.workspace = true
-time.workspace = true
-tokio.workspace = true
-tracing.workspace = true
-tuikit = { version = "0.5.0", optional = true, default-features = false }
-unicode-width.workspace = true
-url.workspace = true
-uuid.workspace = true
-winnow.workspace = true
-strip-ansi-escapes = "0.2.1"
-windows = { version = "0.58.0", features = ["Win32_System_Console", "Win32_Foundation"], optional = true }
-
-[dev-dependencies]
-tracing-subscriber.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+insta = { workspace = true }
+predicates = { workspace = true }
+rstest = { workspace = true }
+serial_test = { workspace = true }
+test-case = { workspace = true }
+test-context = { workspace = true }

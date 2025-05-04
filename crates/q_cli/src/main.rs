@@ -19,8 +19,13 @@ use fig_util::{
 };
 use tracing::metadata::LevelFilter;
 
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[cfg(not(feature = "mimalloc"))]
+#[global_allocator]
+static GLOBAL: std::alloc::System = std::alloc::System;
 
 fn main() -> Result<ExitCode> {
     color_eyre::install()?;
@@ -28,86 +33,23 @@ fn main() -> Result<ExitCode> {
     fig_telemetry::init_global_telemetry_emitter();
 
     let multithread = matches!(
-        std::env::args().nth(1).as_deref(),
-        Some("init" | "_" | "internal" | "completion" | "hook" | "chat")
+        std::env::var("Q_SINGLE_THREADED"),
+        Err(_) | Ok(ref s) if s.is_empty() || s == "0" || s == "false"
     );
 
-    let parsed = match cli::Cli::try_parse() {
-        Ok(cli) => cli,
-        Err(err) => {
-            let _ = err.print();
-
-            let unknown_arg = matches!(err.kind(), ErrorKind::UnknownArgument | ErrorKind::InvalidSubcommand)
-                && !err.context().any(|(context_kind, _)| {
-                    matches!(
-                        context_kind,
-                        ContextKind::SuggestedSubcommand | ContextKind::SuggestedArg
-                    )
-                });
-
-            if unknown_arg {
-                #[cfg(not(feature = "minimal"))]
-                {
-                    eprintln!(
-                        "\nThis command may be valid in newer versions of the {PRODUCT_NAME} CLI. Try running {} {}.",
-                        CLI_BINARY_NAME.magenta(),
-                        "update".magenta()
-                    );
-                }
-                
-                #[cfg(feature = "minimal")]
-                {
-                    eprintln!(
-                        "\nThis command may be valid in newer versions of the {PRODUCT_NAME} CLI. Try running {CLI_BINARY_NAME} update."
-                    );
-                }
-            }
-
-            return Ok(ExitCode::from(err.exit_code().try_into().unwrap_or(2)));
-        },
-    };
-
-    let verbose = parsed.verbose > 0;
-
-    let runtime = if multithread {
+    let rt = if multithread {
         tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()?
     } else {
         tokio::runtime::Builder::new_current_thread()
-    }
-    .enable_all()
-    .build()?;
+            .enable_all()
+            .build()?
+    };
 
-    let result = runtime.block_on(async {
-        let result = parsed.execute().await;
+    rt.block_on(async {
+        let result = cli::run().await;
         fig_telemetry::finish_telemetry().await;
         result
-    });
-
-    match result {
-        Ok(exit_code) => Ok(exit_code),
-        Err(err) => {
-            if verbose || get_log_level_max() > LevelFilter::INFO {
-                #[cfg(not(feature = "minimal"))]
-                {
-                    eprintln!("{} {err:?}", "error:".bold().red());
-                }
-                
-                #[cfg(feature = "minimal")]
-                {
-                    eprintln!("error: {err:?}");
-                }
-            } else {
-                #[cfg(not(feature = "minimal"))]
-                {
-                    eprintln!("{} {err}", "error:".bold().red());
-                }
-                
-                #[cfg(feature = "minimal")]
-                {
-                    eprintln!("error: {err}");
-                }
-            }
-            Ok(ExitCode::FAILURE)
-        },
-    }
+    })
 }

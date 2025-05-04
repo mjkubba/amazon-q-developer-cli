@@ -149,6 +149,7 @@ reqwest = { version = "0.12.14", default-features = false, features = [
 ring = "0.17.14"
 rstest = "0.18.2"
 rusqlite = { version = "0.32.1", features = ["bundled", "serde_json"] }
+rustyline = "15.0.0"
 serial_test = "3.0.0"
 shellexpand = "3.0.0"
 shell-color = { path = "crates/shell-color" }
@@ -163,6 +164,7 @@ skim = "0.10.4"
 spinners = "4.1.0"
 strum = { version = "0.27.1", features = ["derive"] }
 sysinfo = "0.33.1"
+termwiz = "0.20.0"
 test-case = "3.3.1"
 test-context = "0.1.4"
 thiserror = "2.0.12"

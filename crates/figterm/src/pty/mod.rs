@@ -16,7 +16,7 @@ pub use cmdbuilder::CommandBuilder;
 pub mod unix;
 
 #[cfg(windows)]
-pub mod win;
+pub mod windows;
 
 #[async_trait]
 pub trait AsyncMasterPty {

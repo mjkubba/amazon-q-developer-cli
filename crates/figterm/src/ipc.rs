@@ -166,7 +166,12 @@ pub async fn spawn_figterm_ipc(
         #[cfg(unix)]
         {
             use std::fs::Permissions;
+            #[cfg(unix)]
             use std::os::unix::fs::PermissionsExt;
+            
+            #[cfg(windows)]
+            // Windows doesn't use Unix permissions, so we'll just create the file
+            let mut file = std::fs::File::create(&path)?;
             std::fs::set_permissions(parent, Permissions::from_mode(0o700))?;
         }
     }

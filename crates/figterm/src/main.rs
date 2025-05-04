@@ -90,6 +90,7 @@ use flume::{
     Sender,
 };
 #[cfg(unix)]
+#[cfg(unix)]
 use nix::unistd::execvp;
 use portable_pty::PtySize;
 use tokio::io::{
@@ -126,6 +127,7 @@ use crate::message::{
     process_figterm_message,
     process_remote_message,
 };
+#[cfg(unix)]
 #[cfg(unix)]
 use crate::pty::unix::open_pty;
 #[cfg(windows)]
@@ -525,7 +527,11 @@ fn figterm_main(command: Option<&[String]>) -> Result<()> {
 
     #[cfg(unix)]
     {
+        #[cfg(unix)]
         let pid = nix::unistd::getpid();
+        
+        #[cfg(windows)]
+        let pid = get_process_id();
         logger::stdio_debug_log(format!("Parent pid: {pid}"));
     }
 
@@ -1020,3 +1026,10 @@ mod tests {
         )])));
     }
 }
+    #[cfg(windows)]
+    use crate::pty::windows::open_pty;
+    
+    #[cfg(windows)]
+    fn get_process_id() -> u32 {
+        unsafe { winapi::um::processthreadsapi::GetCurrentProcessId() }
+    }

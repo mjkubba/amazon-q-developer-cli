@@ -120,7 +120,14 @@ fn create_command(executable: impl AsRef<Path>, working_directory: impl AsRef<Pa
     {
         let pre_exec_fn = || {
             // Remove controlling terminal.
+            #[cfg(unix)]
             nix::unistd::setsid()?;
+            
+            #[cfg(windows)]
+            // Windows equivalent of setsid - create a new process group
+            unsafe {
+                winapi::um::processthreadsapi::SetProcessShutdownParameters(0x100, 0);
+            }
             Ok(())
         };
 

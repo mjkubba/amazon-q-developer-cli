@@ -10,6 +10,7 @@ use std::os::windows::ffi::OsStrExt;
 use anyhow::Context;
 use cfg_if::cfg_if;
 #[cfg(unix)]
+#[cfg(unix)]
 use nix::libc;
 
 /// Used to deal with Windows having case-insensitive environment variables.
@@ -62,7 +63,11 @@ pub struct CommandBuilder {
     envs: BTreeMap<OsString, EnvEntry>,
     cwd: Option<OsString>,
     #[cfg(unix)]
+    #[cfg(unix)]
     pub umask: Option<nix::sys::stat::Mode>,
+    
+    #[cfg(windows)]
+    pub umask: Option<u32>,
 }
 
 impl CommandBuilder {
@@ -227,8 +232,14 @@ impl CommandBuilder {
 
 #[cfg(unix)]
 impl CommandBuilder {
+    #[cfg(unix)]
     pub fn umask(&mut self, mask: Option<nix::sys::stat::Mode>) {
         self.umask = mask;
+    }
+    
+    #[cfg(windows)]
+    pub fn umask(&mut self, _mask: Option<u32>) {
+        // Windows doesn't have umask, so this is a no-op
     }
 
     fn resolve_path(&self) -> Option<&OsStr> {
@@ -272,6 +283,7 @@ impl CommandBuilder {
 
     /// Convert the CommandBuilder to a `std::process::Command` instance.
     pub fn as_command(&self) -> anyhow::Result<std::process::Command> {
+#[cfg(unix)]
         use std::os::unix::process::CommandExt;
 
         let home = self.get_home_dir()?;

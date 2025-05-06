@@ -574,7 +574,7 @@ fn append(a: impl AsRef<Path>, b: impl AsRef<Path>) -> PathBuf {
             }
             PathBuf::from(OsString::from(String::from_utf8_lossy(a).to_string()))
                 .join(PathBuf::from(OsString::from(String::from_utf8_lossy(b).to_string())))
-        } else {
+        } else if #[cfg(windows)] {
             // Windows implementation
             let a_path = a.as_ref();
             let b_path = b.as_ref();
@@ -582,19 +582,44 @@ fn append(a: impl AsRef<Path>, b: impl AsRef<Path>) -> PathBuf {
             // Handle absolute paths
             if b_path.is_absolute() {
                 let b_str = b_path.to_string_lossy().to_string();
-                let a_str = a_path.to_string_lossy().to_string();
                 
-                // Remove drive letter if present
-                let b_without_drive = if b_str.chars().nth(1) == Some(':') {
-                    PathBuf::from(&b_str[2..])
+                // Check if path has a drive letter (e.g., C:\)
+                if b_str.len() >= 2 && b_str.chars().nth(1) == Some(':') {
+                    // Extract drive-less path (remove "C:" but keep the "\")
+                    let drive_letter = b_str.chars().next().unwrap();
+                    let b_without_drive = PathBuf::from(&b_str[2..]);
+                    
+                    // If the drive letters match, just join the paths
+                    let a_str = a_path.to_string_lossy().to_string();
+                    if a_str.len() >= 2 && a_str.chars().next() == Some(drive_letter) {
+                        a_path.join(b_without_drive)
+                    } else {
+                        // Different drives, use the root path from a and append b without drive
+                        a_path.join(b_without_drive)
+                    }
+                } else if b_str.starts_with("\\\\") {
+                    // UNC path (\\server\share)
+                    // Extract the server and share parts
+                    let parts: Vec<&str> = b_str.splitn(4, '\\').collect();
+                    if parts.len() >= 4 {
+                        // Join with the path after the share name
+                        let path_after_share = PathBuf::from(parts[3..].join("\\"));
+                        a_path.join(path_after_share)
+                    } else {
+                        // Not enough parts, just join as is
+                        a_path.join(b_path)
+                    }
                 } else {
-                    b_path.to_path_buf()
-                };
-                
-                a_path.join(b_without_drive)
+                    // Regular absolute path without drive letter
+                    a_path.join(b_path.strip_prefix("\\").unwrap_or(b_path))
+                }
             } else {
+                // Relative path, just join normally
                 a_path.join(b_path)
             }
+        } else {
+            // Default implementation for other platforms
+            a.as_ref().join(b.as_ref())
         }
     }
 }

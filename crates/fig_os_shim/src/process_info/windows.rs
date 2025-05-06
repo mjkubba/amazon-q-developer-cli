@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::Weak;
 use std::collections::HashMap;
 
-use windows::Win32::Foundation::CloseHandle;
+use windows::Win32::Foundation::{CloseHandle, HANDLE, HINSTANCE, HWND};
 use windows::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
     PROCESS_QUERY_LIMITED_INFORMATION,
@@ -10,8 +10,8 @@ use windows::Win32::System::Threading::{
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
 };
-use windows::core::PWSTR;
-use wmi::{COMLibrary, WMIConnection, FilterValue};
+use windows::core::{PWSTR, HRESULT};
+use wmi::{COMLibrary, WMIConnection, FilterValue, WMIError};
 use serde::Deserialize;
 
 use crate::Context;
@@ -115,19 +115,49 @@ struct WmiProcess {
 }
 
 pub fn cmdline(_ctx: Weak<Context>, pid: &RawPid) -> Option<String> {
-    // Initialize COM library
-    let com_lib = COMLibrary::new().ok()?;
+    // Initialize COM library with better error handling
+    let com_lib = match COMLibrary::new() {
+        Ok(lib) => lib,
+        Err(err) => {
+            tracing::error!("Failed to initialize COM library: {:?}", err);
+            return None;
+        }
+    };
     
-    // Connect to WMI
-    let wmi_con = WMIConnection::new(com_lib).ok()?;
+    // Connect to WMI with better error handling
+    let wmi_con = match WMIConnection::new(com_lib) {
+        Ok(con) => con,
+        Err(err) => {
+            tracing::error!("Failed to connect to WMI: {:?}", err);
+            return None;
+        }
+    };
     
     // Create filter for the process ID
     let mut filters = HashMap::new();
     filters.insert("ProcessId".to_string(), FilterValue::Number(pid.as_u32() as i64));
     
     // Query WMI for the process with the given PID
-    let processes: Vec<WmiProcess> = wmi_con.filtered_query(&filters).ok()?;
+    let processes: Result<Vec<WmiProcess>, WMIError> = wmi_con.filtered_query(&filters);
     
-    // Return the command line if found
-    processes.first().and_then(|p| p.CommandLine.clone())
+    match processes {
+        Ok(procs) => {
+            // Return the command line if found
+            procs.first().and_then(|p| p.CommandLine.clone())
+        },
+        Err(err) => {
+            tracing::error!("Failed to query WMI for process {}: {:?}", pid.as_u32(), err);
+            None
+        }
+    }
+}
+
+// Helper function to handle Windows errors
+fn handle_windows_error(hr: HRESULT, operation: &str) -> Option<()> {
+    if hr.is_ok() {
+        Some(())
+    } else {
+        tracing::error!("Windows API error during {}: {:?}", operation, hr);
+        None
+    }
 }

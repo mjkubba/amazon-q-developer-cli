@@ -6,7 +6,29 @@ mod fs;
 mod platform;
 pub mod process_info;
 mod providers;
-mod sysinfo;
+/// Cross-platform signal handling
+pub mod signal {
+    use std::io;
+
+    #[cfg(unix)]
+    pub async fn handle_ctrl_c() -> Result<(), io::Error> {
+        use tokio::signal::unix::signal;
+        use tokio::signal::unix::SignalKind;
+        
+        let mut sigint = signal(SignalKind::interrupt())?;
+        sigint.recv().await;
+        Ok(())
+    }
+
+    #[cfg(windows)]
+    pub async fn handle_ctrl_c() -> Result<(), io::Error> {
+        use tokio::signal::windows::ctrl_c;
+        
+        let mut ctrl_c = ctrl_c()?;
+        ctrl_c.recv().await;
+        Ok(())
+    }
+}mod sysinfo;
 
 use std::sync::Arc;
 
@@ -27,6 +49,7 @@ pub use providers::{
     SysInfoProvider,
 };
 pub use sysinfo::SysInfo;
+pub use signal::handle_ctrl_c;
 
 pub trait Shim {
     /// Returns whether or not the shim is a real implementation.

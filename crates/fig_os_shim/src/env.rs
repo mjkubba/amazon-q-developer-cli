@@ -119,7 +119,18 @@ impl Env {
 
     pub fn home(&self) -> Option<PathBuf> {
         match &self.0 {
-            inner::Inner::Real => dirs::home_dir(),
+            inner::Inner::Real => {
+                cfg_if::cfg_if! {
+                    if #[cfg(windows)] {
+                        // On Windows, prefer USERPROFILE over HOME
+                        self.get_os("USERPROFILE")
+                            .map(PathBuf::from)
+                            .or_else(|| dirs::home_dir())
+                    } else {
+                        dirs::home_dir()
+                    }
+                }
+            },
             inner::Inner::Fake(fake) => fake.lock().unwrap().vars.get("HOME").map(PathBuf::from),
         }
     }
@@ -132,7 +143,15 @@ impl Env {
         }
     }
 
-    pub fn current_exe(&self) -> Result<PathBuf, io::Error> {
+    #[cfg(windows)]
+    pub fn get_app_data_dir(&self) -> Option<PathBuf> {
+        self.get_os("APPDATA").map(PathBuf::from)
+    }
+
+    #[cfg(windows)]
+    pub fn get_local_app_data_dir(&self) -> Option<PathBuf> {
+        self.get_os("LOCALAPPDATA").map(PathBuf::from)
+    }    pub fn current_exe(&self) -> Result<PathBuf, io::Error> {
         use inner::Inner;
         match &self.0 {
             Inner::Real => std::env::current_exe(),

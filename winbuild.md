@@ -131,3 +131,44 @@ However, we're still encountering issues with the build process. The main proble
 We've made significant progress in implementing Windows native support for the Amazon Q Developer CLI. By replacing tuikit with termwiz and adding proper conditional compilation, we're on the right track to achieving a fully functional Windows native build.
 
 However, we still have several issues to fix before the project builds successfully on Windows. By following the detailed plan outlined above, we should be able to resolve these issues and achieve our goal of a Windows native build without relying on WSL.
+
+## Entry Point for 'q chat' Functionality
+
+When a user runs the 'q' command without any subcommands, it defaults to launching the chat functionality. Here's how the flow works:
+
+1. **Main Entry Point**: In `q_cli/src/cli/mod.rs`, when no subcommand is specified, it calls:
+   ```rust
+   // Root command
+   None => q_chat::launch_chat(q_chat::cli::Chat::default()).await
+   ```
+
+2. **Chat Launch Process**:
+   - `launch_chat` function in `q_chat/src/lib.rs` takes a `cli::Chat` struct with command-line arguments
+   - It calls the `chat` function with appropriate parameters
+   - The `chat` function:
+     - Checks user authentication
+     - Creates a new `Context` object
+     - Sets up interactive/non-interactive mode
+     - Creates a streaming client for Amazon Q service
+     - Loads MCP server configurations
+     - Sets up tool manager and permissions
+     - Creates a `ChatContext` object
+     - Calls `try_chat` to start the chat session
+
+3. **Chat Session Handling**:
+   - `ChatContext::try_chat` implements a state machine with states like:
+     - `PromptUser`: Gets user input
+     - `HandleInput`: Processes user commands
+     - `ValidateTools`: Validates tools requested by the model
+     - `ExecuteTools`: Executes validated tools
+     - `HandleResponseStream`: Processes model responses
+     - `CompactHistory`: Summarizes conversation history
+     - `Exit`: Terminates the session
+
+4. **Windows Compatibility Considerations**:
+   - The chat functionality relies on terminal handling that needs to be cross-platform
+   - Signal handling for Ctrl+C needs Windows alternatives
+   - File system operations need to use platform-agnostic APIs
+   - Terminal rendering needs to work with Windows console
+
+This understanding will help us ensure that the Windows native build properly supports the core chat functionality that users expect when running the 'q' command.

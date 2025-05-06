@@ -33,6 +33,7 @@ fn download_protoc() {
     let protoc_version = "26.1";
 
     let tmp_folder = tempfile::tempdir().unwrap();
+    println!("Temp folder: {}", tmp_folder.path().display());
 
     let os = match std::env::consts::OS {
         "linux" => "linux",
@@ -63,6 +64,7 @@ fn download_protoc() {
             if output.status.success() {
                 // Use the locally installed protoc
                 let protoc_path = which::which("protoc").expect("protoc should be in PATH");
+                println!("Using locally installed protoc: {}", protoc_path.display());
                 std::env::set_var("PROTOC", protoc_path);
                 return;
             }
@@ -94,7 +96,7 @@ fn download_protoc() {
             for path in [
                 "C:\\protobuf\\bin\\protoc.exe", 
                 "C:\\Program Files\\protobuf\\bin\\protoc.exe",
-                "I:\\workspace\\protobuf\\bin\\protoc.exe"
+                "C:\\Program Files (x86)\\protobuf\\bin\\protoc.exe"
             ] {
                 if std::path::Path::new(path).exists() {
                     println!("Found protoc at: {}", path);
@@ -130,6 +132,14 @@ fn download_protoc() {
     eprintln!("checksum: {checksum_output:?}");
     assert!(checksum_output.starts_with(checksum));
 
+    // Create the output directory if it doesn't exist
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    std::fs::create_dir_all(&out_dir).expect("Failed to create OUT_DIR");
+
+    // Create bin directory in temp folder
+    let bin_dir = tmp_folder.path().join("bin");
+    std::fs::create_dir_all(&bin_dir).expect("Failed to create bin directory");
+
     let unzip_success = if cfg!(target_os = "windows") {
         // Use PowerShell to unzip on Windows
         let mut unzip_command = Command::new("powershell");
@@ -152,30 +162,90 @@ fn download_protoc() {
     assert!(unzip_success);
 
     let out_bin = if cfg!(target_os = "windows") {
-        PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("protoc.exe")
+        out_dir.join("protoc.exe")
     } else {
-        PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("protoc")
+        out_dir.join("protoc")
     };
 
-    let move_success = if cfg!(target_os = "windows") {
-        // Use PowerShell to move files on Windows
-        let source_path = tmp_folder.path().join("bin/protoc.exe");
-        let mut mv = Command::new("powershell");
-        mv.arg("-Command")
-            .arg(format!(
-                "Copy-Item -Path '{}' -Destination '{}' -Force",
-                source_path.display(),
-                out_bin.display()
-            ));
-        mv.spawn().unwrap().wait().unwrap().success()
-    } else {
-        let mut mv = Command::new("mv");
-        mv.arg(tmp_folder.path().join("bin/protoc")).arg(&out_bin);
-        mv.spawn().unwrap().wait().unwrap().success()
-    };
-    assert!(move_success);
+    // List files in tmp_folder to debug
+    println!("Contents of temp folder after unzip:");
+    if let Ok(entries) = std::fs::read_dir(tmp_folder.path()) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                println!("  {}", entry.path().display());
+                
+                // If this is a directory, list its contents too
+                if entry.path().is_dir() {
+                    if let Ok(subentries) = std::fs::read_dir(entry.path()) {
+                        for subentry in subentries {
+                            if let Ok(subentry) = subentry {
+                                println!("    {}", subentry.path().display());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-    std::env::set_var("PROTOC", out_bin);
+    // Try to find protoc.exe in the temp folder recursively
+    fn find_file(dir: &std::path::Path, filename: &str) -> Option<PathBuf> {
+        println!("Searching for {} in {}", filename, dir.display());
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let path = entry.path();
+                if path.is_file() && path.file_name().and_then(|s| s.to_str()) == Some(filename) {
+                    println!("Found {} at {}", filename, path.display());
+                    return Some(path);
+                } else if path.is_dir() {
+                    if let Some(found) = find_file(&path, filename) {
+                        return Some(found);
+                    }
+                }
+            }
+        }
+        None
+    }
+    
+    let protoc_filename = if cfg!(target_os = "windows") { "protoc.exe" } else { "protoc" };
+    
+    if let Some(found_path) = find_file(tmp_folder.path(), protoc_filename) {
+        println!("Found protoc at: {}", found_path.display());
+        
+        // Create parent directories if they don't exist
+        if let Some(parent) = out_bin.parent() {
+            std::fs::create_dir_all(parent).expect("Failed to create parent directories");
+        }
+        
+        // Copy the file
+        println!("Copying {} to {}", found_path.display(), out_bin.display());
+        std::fs::copy(&found_path, &out_bin).expect("Failed to copy protoc");
+        
+        // Make the binary executable on Unix
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&out_bin).unwrap().permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&out_bin, perms).unwrap();
+        }
+        
+        println!("Setting PROTOC to: {}", out_bin.display());
+        std::env::set_var("PROTOC", out_bin);
+    } else {
+        // If we can't find protoc in the extracted files, try to use the system protoc
+        if let Ok(output) = Command::new("protoc").arg("--version").output() {
+            if output.status.success() {
+                let protoc_path = which::which("protoc").expect("protoc should be in PATH");
+                println!("Using system protoc: {}", protoc_path.display());
+                std::env::set_var("PROTOC", protoc_path);
+            } else {
+                panic!("Could not find protoc in the extracted files and no system protoc is available");
+            }
+        } else {
+            panic!("Could not find protoc in the extracted files and no system protoc is available");
+        }
+    }
 }
 
 fn main() -> Result<()> {

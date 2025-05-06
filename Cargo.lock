@@ -2800,6 +2800,7 @@ dependencies = [
  "sysinfo",
  "tempfile",
  "tokio",
+ "tracing",
  "windows 0.52.0",
  "wmi",
 ]

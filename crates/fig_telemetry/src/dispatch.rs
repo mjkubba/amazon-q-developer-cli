@@ -72,7 +72,7 @@ pub(crate) async fn dispatch(event: &AppTelemetryEvent) -> DispatchStatus {
         },
     };
 
-    let mut socket = match fig_ipc::socket_connect(socket_path).await {
+    let mut socket = match fig_ipc::connect(socket_path).await {
         Ok(socket) => socket,
         Err(err) => {
             error!(%err, "Failed to connect to figterm socket");

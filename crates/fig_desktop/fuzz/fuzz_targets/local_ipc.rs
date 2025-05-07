@@ -1,52 +1,58 @@
 #![no_main]
+#![cfg(unix)] // Only run this fuzzing target on Unix platforms
 
-extern crate fig_ipc;
-extern crate libfuzzer_sys;
-
-use std::ops::Deref;
 use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::sync::Once;
 
 use fig_ipc::{
-    BufferedUnixStream,
-    RecvMessage,
-    SendMessage,
+    BufferedStream,
+    connect,
 };
 use fig_proto::local::LocalMessage;
 use libfuzzer_sys::fuzz_target;
 use tokio::net::UnixListener;
+use tokio::runtime::Runtime;
+use tokio::sync::oneshot;
 
-static RUNTIME: LazyLock<tokio::runtime::Runtime> = LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());
+static RUNTIME: once_cell::sync::Lazy<Runtime> = once_cell::sync::Lazy::new(|| Runtime::new().unwrap());
+static INIT: Once = Once::new();
+static DIRSOCK: once_cell::sync::Lazy<(PathBuf, PathBuf)> = once_cell::sync::Lazy::new(|| {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("socket");
+    (dir.into_path(), path)
+});
 
-static DIRSOCK: LazyLock<(tempfile::TempDir, PathBuf)> = LazyLock::new(|| {
-    let temp_dir = tempfile::tempdir().unwrap();
-    let socket_path = temp_dir.path().join("test.sock");
-    #[cfg(unix)]
-    {
-        use std::fs::Permissions;
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(socket_path.parent().unwrap(), Permissions::from_mode(0o700)).unwrap();
+fn init() {
+    INIT.call_once(|| {
+        let (tx, rx) = oneshot::channel();
+        RUNTIME.spawn(async move {
+            let listener = UnixListener::bind(&DIRSOCK.1).unwrap();
+            tx.send(()).unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut stream = BufferedStream::new(stream);
+            let _: LocalMessage = stream.recv_message().await.unwrap().unwrap();
+        });
+        rx.blocking_recv().unwrap();
+    });
+}
+
+fuzz_target!(|data: Vec<u8>| {
+    if data.is_empty() {
+        return;
     }
 
-    (temp_dir, socket_path)
-});
+    init();
 
-static LISTENER: LazyLock<UnixListener> = LazyLock::new(|| UnixListener::bind(&DIRSOCK.1).unwrap());
-
-fuzz_target!(|input: LocalMessage| {
-    RUNTIME.block_on(fuzz(input));
-});
-
-async fn fuzz(input: LocalMessage) {
-    let _ = LISTENER.deref();
-    let join = tokio::spawn(async move {
-        let (stream, _) = LISTENER.accept().await.unwrap();
-        let mut stream = BufferedUnixStream::new(stream);
-        stream.recv_message::<LocalMessage>().await.unwrap();
+    RUNTIME.block_on(async {
+        let mut stream = connect(&DIRSOCK.1).await.unwrap();
+        let msg = LocalMessage {
+            request: Some(fig_proto::local::LocalRequest {
+                request: Some(fig_proto::local::local_request::Request::Echo(
+                    fig_proto::local::EchoRequest { data },
+                )),
+            }),
+            response: None,
+        };
+        stream.send_message(msg).await.unwrap();
     });
-
-    let mut stream = fig_ipc::socket_connect(&DIRSOCK.1).await.unwrap();
-    stream.send_message(input).await.unwrap();
-
-    join.await.unwrap();
-}
+});

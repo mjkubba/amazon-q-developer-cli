@@ -4,7 +4,9 @@ use thiserror::Error;
 mod selector;
 pub use selector::Selector;
 
+#[cfg(not(target_os = "windows"))]
 mod termwiz_terminal;
+#[cfg(not(target_os = "windows"))]
 pub use termwiz_terminal::TermwizTerminal;
 
 #[cfg(feature = "minimal")]
@@ -18,8 +20,12 @@ pub enum TerminalError {
     #[error("Terminal error: {0}")]
     Terminal(String),
     
+    #[cfg(not(target_os = "windows"))]
     #[error("Termwiz error: {0}")]
     Termwiz(#[from] termwiz::Error),
+    
+    #[error("Unsupported platform")]
+    UnsupportedPlatform,
 }
 
 pub type Result<T> = std::result::Result<T, TerminalError>;
@@ -118,8 +124,14 @@ pub fn create_terminal() -> Result<Box<dyn Terminal>> {
         return Ok(Box::new(minimal::MinimalTerminal::new()?));
     }
     
-    #[cfg(not(feature = "minimal"))]
+    #[cfg(all(not(feature = "minimal"), not(target_os = "windows")))]
     {
         return Ok(Box::new(termwiz_terminal::TermwizTerminal::new()?));
+    }
+    
+    #[cfg(all(not(feature = "minimal"), target_os = "windows"))]
+    {
+        // For now, return an error on Windows
+        return Err(TerminalError::UnsupportedPlatform);
     }
 }

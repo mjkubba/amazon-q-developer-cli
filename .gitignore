@@ -51,3 +51,4 @@ book/
 run-build.sh
 
 .xwin-cache
+.windows

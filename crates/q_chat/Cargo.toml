@@ -11,18 +11,24 @@ license.workspace = true
 amzn-codewhisperer-streaming-client = { path = "../amzn-codewhisperer-streaming-client" }
 amzn-qdeveloper-streaming-client = { path = "../amzn-qdeveloper-streaming-client" }
 anyhow = { workspace = true }
+anstream = "0.6.13"
 async-trait = { workspace = true }
+aws-smithy-types = "1.1.8"
 base64 = { workspace = true }
+bstr = "1.12.0"
 camino = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true, features = ["derive", "env"] }
 color-print = { workspace = true }
 console = { workspace = true }
+convert_case = "0.6.0"
 crossterm = { workspace = true }
 dirs = { workspace = true }
 eyre = { workspace = true }
 fig_api_client = { path = "../fig_api_client" }
 fig_auth = { path = "../fig_auth" }
+fig_diagnostic = { path = "../fig_diagnostic" }
+fig_install = { path = "../fig_install" }
 fig_os_shim = { path = "../fig_os_shim" }
 fig_proto = { path = "../fig_proto" }
 fig_settings = { path = "../fig_settings" }
@@ -33,15 +39,25 @@ futures = { workspace = true }
 http = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }
+mcp_client = { path = "../mcp_client" }
 once_cell = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 rustyline = { workspace = true }
+semver = "1.0.22"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sha2 = { workspace = true }
+shell-color = { path = "../shell-color" }
+shell-words = "1.1.0"
+shlex = "1.3.0"
+shellexpand = "3.1.0"
+similar = "2.5.0"
+spinners = "4.1.1"
+strip-ansi-escapes = "0.2.0"
+syntect = "5.2.0"
 tempfile = { workspace = true }
 termwiz = { workspace = true }
 thiserror = { workspace = true }
@@ -51,9 +67,11 @@ tokio-util = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+unicode-width = "0.1.11"
 url = { workspace = true }
 uuid = { workspace = true }
 which = { workspace = true }
+winnow = "0.6.5"
 
 [features]
 default = ["auto-terminal"]
@@ -62,6 +80,7 @@ unix-terminal = []
 windows-terminal = []
 minimal = []  # No terminal UI
 no-tuikit = []
+termwiz-terminal = []
 
 [lints]
 workspace = true

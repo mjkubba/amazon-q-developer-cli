@@ -3,6 +3,7 @@ use std::fs::{
     File,
 };
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::DirBuilderExt;
 use std::path::PathBuf;
 

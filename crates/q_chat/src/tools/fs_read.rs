@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::fs::Metadata;
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 use crossterm::queue;
@@ -343,31 +344,54 @@ impl FsDirectory {
             }
             let mut read_dir = ctx.fs().read_dir(path).await?;
             while let Some(ent) = read_dir.next_entry().await? {
-                use std::os::unix::fs::MetadataExt;
-                let md = ent.metadata().await?;
-                let formatted_mode = format_mode(md.permissions().mode()).into_iter().collect::<String>();
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::MetadataExt;
+                    let md = ent.metadata().await?;
+                    let formatted_mode = format_mode(md.permissions().mode()).into_iter().collect::<String>();
 
-                let modified_timestamp = md.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
-                let datetime = time::OffsetDateTime::from_unix_timestamp(modified_timestamp as i64).unwrap();
-                let formatted_date = datetime
-                    .format(time::macros::format_description!(
-                        "[month repr:short] [day] [hour]:[minute]"
-                    ))
-                    .unwrap();
+                    let modified_timestamp = md.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+                    let datetime = time::OffsetDateTime::from_unix_timestamp(modified_timestamp as i64).unwrap();
+                    let formatted_date = datetime
+                        .format(time::macros::format_description!(
+                            "[month repr:short] [day] [hour]:[minute]"
+                        ))
+                        .unwrap();
 
-                // Mostly copying "The Long Format" from `man ls`.
-                // TODO: query user/group database to convert uid/gid to names?
-                result.push(format!(
-                    "{}{} {} {} {} {} {} {}",
-                    format_ftype(&md),
-                    formatted_mode,
-                    md.nlink(),
-                    md.uid(),
-                    md.gid(),
-                    md.size(),
-                    formatted_date,
-                    ent.path().to_string_lossy()
-                ));
+                    // Mostly copying "The Long Format" from `man ls`.
+                    // TODO: query user/group database to convert uid/gid to names?
+                    result.push(format!(
+                        "{}{} {} {} {} {} {} {}",
+                        format_ftype(&md),
+                        formatted_mode,
+                        md.nlink(),
+                        md.uid(),
+                        md.gid(),
+                        md.size(),
+                        formatted_date,
+                        ent.path().to_string_lossy()
+                    ));
+                }
+                
+                #[cfg(not(unix))]
+                {
+                    let md = ent.metadata().await?;
+                    let modified_timestamp = md.modified()?.duration_since(std::time::UNIX_EPOCH)?.as_secs();
+                    let datetime = time::OffsetDateTime::from_unix_timestamp(modified_timestamp as i64).unwrap();
+                    let formatted_date = datetime
+                        .format(time::macros::format_description!(
+                            "[month repr:short] [day] [hour]:[minute]"
+                        ))
+                        .unwrap();
+
+                    // Simplified format for Windows
+                    result.push(format!(
+                        "{} {} {}",
+                        if md.is_dir() { "d" } else { "-" },
+                        formatted_date,
+                        ent.path().to_string_lossy()
+                    ));
+                }
                 if md.is_dir() {
                     dir_queue.push_back((ent.path(), depth + 1));
                 }
@@ -422,6 +446,7 @@ fn format_ftype(md: &Metadata) -> char {
 }
 
 /// Formats a permissions mode into the form used by `ls`, e.g. `0o644` to `rw-r--r--`
+#[cfg(unix)]
 fn format_mode(mode: u32) -> [char; 9] {
     let mut mode = mode & 0o777;
     let mut res = ['-'; 9];
@@ -569,6 +594,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn test_format_mode() {
         macro_rules! assert_mode {
             ($actual:expr, $expected:expr) => {

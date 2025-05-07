@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use std::path::Path;
+
 use fig_settings::sqlite::{
     Db,
     database,
@@ -14,6 +16,11 @@ pub struct SqliteSecretStore {
 impl SqliteSecretStore {
     pub async fn new() -> Result<Self> {
         Ok(Self { db: database()? })
+    }
+
+    // Constructor that takes a specific path for Windows implementation
+    pub async fn new_with_path(path: &Path) -> Result<Self> {
+        Ok(Self { db: database()? }) // TODO: Implement database with custom path
     }
 
     pub async fn set(&self, key: &str, password: &str) -> Result<()> {

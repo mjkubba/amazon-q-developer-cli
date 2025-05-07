@@ -1,228 +1,110 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use fig_proto::local::{
-    self,
-    BundleMetadataCommand,
-    BundleMetadataResponse,
-    CommandResponse,
-    DebugModeCommand,
-    DevtoolsCommand,
-    DumpStateCommand,
-    DumpStateResponse,
-    InputMethodAction,
-    InputMethodCommand,
-    LogLevelCommand,
-    LogLevelResponse,
-    LoginCommand,
-    LogoutCommand,
-    OpenUiElementCommand,
-    PromptAccessibilityCommand,
-    QuitCommand,
-    RestartCommand,
-    RestartSettingsListenerCommand,
-    UiElement,
-    UpdateCommand,
-    command,
-    command_response,
-    devtools_command,
-    dump_state_command,
+use fig_proto::{FigProtobufEncodable, prost::Message, ReflectMessage};
+use fig_util::directories::{
+    sockets_dir,
+    DirectoryError,
 };
-use fig_util::directories;
+use tokio::io::{
+    AsyncRead,
+    AsyncWrite,
+};
+use tracing::{
+    debug,
+    trace,
+};
 
 use crate::{
-    BufferedUnixStream,
     Error,
     RecvError,
+    RecvMessage,
+    SendError,
+    SendMessage,
     SendRecvMessage,
+    BufferedStream,
+    connect,
+    connect_timeout,
 };
 
-type Result<T, E = crate::Error> = std::result::Result<T, E>;
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(5);
 
-pub async fn restart_settings_listener() -> Result<()> {
-    let command = command::Command::RestartSettingsListener(RestartSettingsListenerCommand {});
-    send_command_to_socket(command).await
+/// A local socket connection
+pub struct LocalSocket<T> {
+    socket: T,
+    path: PathBuf,
 }
 
-pub async fn open_ui_element(element: UiElement, route: Option<String>) -> Result<()> {
-    let command = command::Command::OpenUiElement(OpenUiElementCommand {
-        element: element.into(),
-        route,
-    });
-    send_command_to_socket(command).await
-}
-
-pub async fn toggle_debug_mode() -> Result<Option<local::CommandResponse>> {
-    let command = command::Command::DebugMode(DebugModeCommand {
-        set_debug_mode: None,
-        toggle_debug_mode: Some(true),
-    });
-    send_recv_command_to_socket(command).await
-}
-
-pub async fn set_debug_mode(debug_mode: bool) -> Result<Option<local::CommandResponse>> {
-    let command = command::Command::DebugMode(DebugModeCommand {
-        set_debug_mode: Some(debug_mode),
-        toggle_debug_mode: None,
-    });
-    send_recv_command_to_socket(command).await
-}
-
-pub async fn set_log_level(level: String) -> Result<Option<String>> {
-    let command = command::Command::LogLevel(LogLevelCommand { level });
-    let resp: Option<local::CommandResponse> = send_recv_command_to_socket(command).await?;
-
-    match resp {
-        Some(CommandResponse {
-            response: Some(command_response::Response::LogLevel(LogLevelResponse { old_level })),
-            ..
-        }) => Ok(old_level),
-        _ => Err(RecvError::InvalidMessageType.into()),
+impl<T> LocalSocket<T> {
+    /// Create a new local socket
+    pub fn new(socket: T, path: PathBuf) -> Self {
+        Self { socket, path }
     }
 }
 
-pub async fn dump_state_command(component: dump_state_command::Type) -> Result<DumpStateResponse> {
-    let command = command::Command::DumpState(DumpStateCommand {
-        r#type: component.into(),
-    });
-    let resp: Option<local::CommandResponse> = send_recv_command_to_socket(command).await?;
-
-    match resp {
-        Some(CommandResponse {
-            response: Some(command_response::Response::DumpState(resp)),
-            ..
-        }) => Ok(resp),
-        _ => Err(RecvError::InvalidMessageType.into()),
-    }
+/// Connect to a local socket
+pub async fn connect_local(name: &str) -> Result<LocalSocket<BufferedStream>, Error> {
+    let path = socket_path(name)?;
+    debug!(?path, "Connecting to local socket");
+    let socket = connect(&path).await?;
+    let buffered_socket = BufferedStream::new(socket);
+    trace!(?path, "Connected to local socket");
+    Ok(LocalSocket::new(buffered_socket, path))
 }
 
-pub async fn bundle_metadata_command() -> Result<BundleMetadataResponse> {
-    let command = command::Command::BundleMetadata(BundleMetadataCommand {});
-    let resp: Option<local::CommandResponse> = send_recv_command_to_socket(command).await?;
-
-    match resp {
-        Some(CommandResponse {
-            response: Some(command_response::Response::BundleMetadata(resp)),
-            ..
-        }) => Ok(resp),
-        _ => Err(RecvError::InvalidMessageType.into()),
-    }
+/// Connect to a local socket with a timeout
+pub async fn connect_local_timeout(name: &str, timeout: Duration) -> Result<LocalSocket<BufferedStream>, Error> {
+    let path = socket_path(name)?;
+    debug!(?path, ?timeout, "Connecting to local socket with timeout");
+    let socket = connect_timeout(&path, timeout).await?;
+    let buffered_socket = BufferedStream::new(socket);
+    trace!(?path, "Connected to local socket");
+    Ok(LocalSocket::new(buffered_socket, path))
 }
 
-pub async fn input_method_command(action: InputMethodAction) -> Result<()> {
-    let command = command::Command::InputMethod(InputMethodCommand {
-        actions: Some(action.into()),
-    });
-    send_command_to_socket(command).await
+/// Connect to a local socket with a default timeout
+pub async fn connect_local_with_default_timeout(name: &str) -> Result<LocalSocket<BufferedStream>, Error> {
+    connect_local_timeout(name, DEFAULT_TIMEOUT).await
 }
 
-pub async fn prompt_accessibility_command() -> Result<()> {
-    let command = command::Command::PromptAccessibility(PromptAccessibilityCommand {});
-    send_command_to_socket(command).await
-}
-
-pub async fn update_command(force: bool) -> Result<Option<CommandResponse>> {
-    let command = command::Command::Update(UpdateCommand { force });
-    send_recv_command_to_socket_with_timeout(command, std::time::Duration::from_secs(120)).await
-}
-
-pub async fn restart_command() -> Result<()> {
-    let command = command::Command::Restart(RestartCommand {});
-    send_command_to_socket(command).await
-}
-
-pub async fn quit_command() -> Result<()> {
-    let command = command::Command::Quit(QuitCommand {});
-    send_command_to_socket(command).await
-}
-
-pub async fn login_command() -> Result<()> {
-    let command = command::Command::Login(LoginCommand {});
-    send_command_to_socket(command).await
-}
-
-pub async fn logout_command() -> Result<()> {
-    let command = command::Command::Logout(LogoutCommand {});
-    send_command_to_socket(command).await
-}
-
-pub async fn devtools_command(window: devtools_command::Window) -> Result<()> {
-    let command = command::Command::Devtools(DevtoolsCommand { window: window.into() });
-    send_command_to_socket(command).await
+/// Get the socket path for a local socket
+pub fn socket_path(name: &str) -> Result<PathBuf, DirectoryError> {
+    let mut path = sockets_dir()?;
+    path.push(name);
+    Ok(path)
 }
 
 #[async_trait]
-pub trait LocalIpc: SendRecvMessage {
-    async fn send_hook(&mut self, hook: local::Hook) -> Result<()>;
-    async fn send_command(&mut self, command: local::command::Command, response: bool) -> Result<()>;
-    async fn send_recv_command(
-        &mut self,
-        command: local::command::Command,
-        timeout: Duration,
-    ) -> Result<Option<local::CommandResponse>>;
-}
-
-#[async_trait]
-impl<C> LocalIpc for C
+impl<T> SendMessage for LocalSocket<T>
 where
-    C: SendRecvMessage + Send,
+    T: AsyncWrite + Unpin + Send + SendMessage,
 {
-    /// Send a hook to the desktop app
-    async fn send_hook(&mut self, hook: local::Hook) -> Result<()> {
-        let message = local::LocalMessage {
-            r#type: Some(local::local_message::Type::Hook(hook)),
-        };
-        Ok(self.send_message(message).await?)
-    }
-
-    /// Send a command to the desktop app
-    async fn send_command(&mut self, command: local::command::Command, response: bool) -> Result<()> {
-        let message = local::LocalMessage {
-            r#type: Some(local::local_message::Type::Command(local::Command {
-                id: None,
-                no_response: Some(!response),
-                command: Some(command),
-            })),
-        };
-        Ok(self.send_message(message).await?)
-    }
-
-    /// Send a command to and recv a response from the desktop app, with a configurable timeout on
-    /// the response
-    async fn send_recv_command(
-        &mut self,
-        command: local::command::Command,
-        timeout: Duration,
-    ) -> Result<Option<local::CommandResponse>> {
-        self.send_command(command, true).await?;
-        Ok(tokio::time::timeout(timeout, self.recv_message())
-            .await
-            .or(Err(Error::Timeout))??)
+    async fn send_message<M>(&mut self, message: M) -> Result<(), SendError>
+    where
+        M: FigProtobufEncodable + Send,
+    {
+        self.socket.send_message(message).await
     }
 }
 
-/// Send a hook directly to the Fig socket
-pub async fn send_hook_to_socket(hook: local::Hook) -> Result<()> {
-    let path = directories::desktop_socket_path()?;
-    let mut conn = BufferedUnixStream::connect_timeout(&path, Duration::from_secs(3)).await?;
-    conn.send_hook(hook).await
+#[async_trait]
+impl<T> RecvMessage for LocalSocket<T>
+where
+    T: AsyncRead + Unpin + Send + RecvMessage,
+{
+    async fn recv_message<R>(&mut self) -> Result<Option<R>, RecvError>
+    where
+        R: Message + ReflectMessage + Default + Send,
+    {
+        self.socket.recv_message().await
+    }
 }
 
-pub async fn send_command_to_socket(command: local::command::Command) -> Result<()> {
-    let path = directories::desktop_socket_path()?;
-    let mut conn = BufferedUnixStream::connect_timeout(&path, Duration::from_secs(3)).await?;
-    conn.send_command(command, false).await
-}
+impl<T> SendRecvMessage for LocalSocket<T> where T: AsyncRead + AsyncWrite + Unpin + Send + SendMessage + RecvMessage {}
 
-pub async fn send_recv_command_to_socket(command: local::command::Command) -> Result<Option<local::CommandResponse>> {
-    send_recv_command_to_socket_with_timeout(command, Duration::from_secs(2)).await
-}
-
-pub async fn send_recv_command_to_socket_with_timeout(
-    command: local::command::Command,
-    timeout: Duration,
-) -> Result<Option<local::CommandResponse>> {
-    let path = directories::desktop_socket_path()?;
-    let mut conn = BufferedUnixStream::connect_timeout(&path, Duration::from_secs(3)).await?;
-    conn.send_recv_command(command, timeout).await
+impl<T> Drop for LocalSocket<T> {
+    fn drop(&mut self) {
+        trace!(?self.path, "Dropping local socket");
+    }
 }

@@ -1,238 +1,274 @@
-use std::io::{
-    Write,
-    stdout,
-};
+#![cfg(unix)] // Only compile this module on Unix platforms
+
+use std::fs::File;
+use std::io::Write;
 use std::os::unix::fs::PermissionsExt as _;
+use std::path::{
+    Path,
+    PathBuf,
+};
+use std::process::Stdio;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::{
+    anyhow,
     Context,
     Result,
 };
+use fig_proto::figterm::{
+    EditBufferRequest,
+    HideRequest,
+    InsertTextRequest,
+    InterceptRequest,
+    SetBufferRequest,
+    ShowRequest,
+    intercept_request,
+};
 use fig_proto::local::{
-    EditBufferHook,
-    InterceptedKeyHook,
-    PostExecHook,
-    PreExecHook,
-    PromptHook,
+    LocalMessage,
+    LocalRequest,
+    LocalResponse,
     ShellContext,
+    local_request,
+    local_response,
 };
-use fig_proto::remote::clientbound;
-use fig_remote_ipc::RemoteHookHandler;
-use fig_remote_ipc::figterm::FigtermState;
-use fig_util::RUNTIME_DIR_NAME;
-use portable_pty::{
-    Child,
-    CommandBuilder,
-    PtyPair,
-    PtySize,
-    native_pty_system,
+use fig_proto::remote::{
+    Clientbound,
+    Hostbound,
+    RunProcessRequest,
 };
-use tempfile::TempDir;
+use fig_util::directories::fig_runtime_dir;
+use fig_util::PTY_BINARY_NAME;
+use tokio::io::{
+    AsyncBufReadExt,
+    AsyncWriteExt,
+    BufReader,
+};
 use tokio::net::UnixListener;
+use tokio::process::{
+    Child,
+    Command,
+};
 use tokio::sync::Mutex;
-use uuid::Uuid;
+use tracing::{
+    debug,
+    error,
+    info,
+    trace,
+    warn,
+};
 
-#[derive(Debug, Clone)]
-struct RemoteHook {
-    buffer: Arc<Mutex<Option<String>>>,
-    shell_context: Arc<Mutex<Option<ShellContext>>>,
-}
-
-#[async_trait::async_trait]
-impl RemoteHookHandler for RemoteHook {
-    type Error = anyhow::Error;
-
-    async fn edit_buffer(
-        &mut self,
-        edit_buffer_hook: &EditBufferHook,
-        _session_id: Uuid,
-        _figterm_state: &Arc<FigtermState>,
-    ) -> Result<Option<clientbound::response::Response>, Self::Error> {
-        *self.buffer.lock().await = Some(edit_buffer_hook.text.clone());
-        Ok(None)
-    }
-
-    async fn prompt(
-        &mut self,
-        _prompt_hook: &PromptHook,
-        _session_id: Uuid,
-        _figterm_state: &Arc<FigtermState>,
-    ) -> Result<Option<clientbound::response::Response>, Self::Error> {
-        Ok(None)
-    }
-
-    async fn pre_exec(
-        &mut self,
-        _pre_exec_hook: &PreExecHook,
-        _session_id: Uuid,
-        _figterm_state: &Arc<FigtermState>,
-    ) -> Result<Option<clientbound::response::Response>, Self::Error> {
-        Ok(None)
-    }
-
-    async fn post_exec(
-        &mut self,
-        _post_exec_hook: &PostExecHook,
-        _session_id: Uuid,
-        _figterm_state: &Arc<FigtermState>,
-    ) -> Result<Option<clientbound::response::Response>, Self::Error> {
-        Ok(None)
-    }
-
-    async fn intercepted_key(
-        &mut self,
-        _intercepted_key: InterceptedKeyHook,
-        _session_id: Uuid,
-    ) -> Result<Option<clientbound::response::Response>, Self::Error> {
-        Ok(None)
-    }
-
-    async fn shell_context(&mut self, context: &ShellContext, _session_id: Uuid) {
-        *self.shell_context.lock().await = Some(context.clone());
-    }
-}
+use crate::figterm_state::FigtermState;
 
 pub struct Shell {
-    // pub remote_socket: UnixListener,
-    pub desktop_socket: UnixListener,
-
-    pub pty_pair: PtyPair,
-    pub writer: Box<dyn std::io::Write + Send>,
-    pub child: Box<dyn Child + Send + Sync>,
-    pub tempdir: TempDir,
-
-    pub buffer: Arc<Mutex<Option<String>>>,
-    pub shell_context: Arc<Mutex<Option<ShellContext>>>,
+    pub child: Child,
+    pub socket_path: PathBuf,
 }
 
 impl Shell {
-    pub async fn init(shell: &str) -> Result<Shell> {
-        let tempdir = TempDir::new()?;
-        println!("{tempdir:?}");
-
-        let figterm_state = Arc::new(FigtermState::new());
-
-        let runtime_dir = tempdir.path().join(RUNTIME_DIR_NAME);
+    pub async fn new(figterm_state: Arc<Mutex<FigtermState>>) -> Result<Self> {
+        let runtime_dir = fig_runtime_dir()?;
         tokio::fs::create_dir_all(&runtime_dir).await?;
         tokio::fs::set_permissions(&runtime_dir, std::fs::Permissions::from_mode(0o700)).await?;
 
-        println!("{runtime_dir:?} {}", runtime_dir.to_str().unwrap().len());
-
-        let path = runtime_dir.join("remote.sock");
-        let buffer = Arc::new(Mutex::new(None));
-        let shell_context = Arc::new(Mutex::new(None));
-        tokio::spawn({
-            let buffer = buffer.clone();
-            let shell_context = shell_context.clone();
-            async move {
-                fig_remote_ipc::remote::start_remote_ipc(path, figterm_state.clone(), RemoteHook {
-                    buffer,
-                    shell_context,
-                })
-                .await
-                .unwrap();
-            }
-        });
-
-        let desktop_socket =
-            UnixListener::bind(runtime_dir.join("desktop.sock")).context("Failed to make desktop.socket")?;
-
-        let pty_system = native_pty_system();
-
-        // Create a new pty
-        let pty_pair = pty_system.openpty(PtySize {
-            cols: 80,
-            rows: 24,
-            pixel_width: 0,
-            pixel_height: 0,
-        })?;
-
-        // Spawn a shell into the pty
-        let mut cmd = CommandBuilder::new(shell);
-
-        let session_id = "1234";
-        cmd.env("Q_NEW_SESSION", "1");
-        cmd.env("MOCK_QTERM_SESSION_ID", session_id);
-        cmd.env("TMPDIR", tempdir.path());
-        cmd.env("XDG_RUNTIME_DIR", tempdir.path());
-
-        let child = pty_pair.slave.spawn_command(cmd)?;
-        let writer = pty_pair.master.take_writer()?;
-
-        let mut res = pty_pair.master.try_clone_reader().unwrap();
-        std::thread::spawn(move || {
-            let mut buf = [0; 1024];
-            while let Ok(a) = res.read(&mut buf) {
-                if a == 0 {
-                    break;
-                }
-                stdout().write_all(&buf[..a]).unwrap();
-                stdout().flush().unwrap();
-            }
-        });
-
-        // give time for shell to spawn
-        tokio::time::sleep(Duration::from_millis(500)).await;
-
-        Ok(Shell {
-            desktop_socket,
-
-            pty_pair,
-            writer,
-            child,
-            tempdir,
-
-            buffer,
-            shell_context,
-        })
-    }
-
-    pub fn write(&mut self, data: &str) -> Result<()> {
-        self.writer.write_all(data.as_bytes())?;
-        self.writer.flush()?;
-
-        Ok(())
-    }
-
-    pub async fn typed(&mut self, text: &str) -> Result<()> {
-        println!("tying: {text}");
-        for c in text.chars() {
-            self.writer.write_all(c.to_string().as_bytes())?;
-            self.writer.flush()?;
-
-            tokio::time::sleep(Duration::from_millis(10)).await;
+        let socket_path = runtime_dir.join("figterm.sock");
+        if socket_path.exists() {
+            tokio::fs::remove_file(&socket_path).await?;
         }
 
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        let listener = UnixListener::bind(&socket_path)?;
+        tokio::task::spawn(async move {
+            let (stream, _) = match listener.accept().await {
+                Ok(stream) => stream,
+                Err(err) => {
+                    error!(%err, "Failed to accept connection");
+                    return;
+                },
+            };
 
-        Ok(())
-    }
+            let (reader, mut writer) = tokio::io::split(stream);
+            let mut reader = BufReader::new(reader);
+            let mut line = String::new();
 
-    pub fn resize(&mut self, cols: u16, rows: u16) -> Result<()> {
-        self.pty_pair.master.resize(PtySize {
-            cols,
-            rows,
-            ..Default::default()
-        })?;
-        Ok(())
-    }
+            loop {
+                line.clear();
+                match reader.read_line(&mut line).await {
+                    Ok(0) => {
+                        debug!("Connection closed");
+                        break;
+                    },
+                    Ok(_) => {
+                        let message = match serde_json::from_str::<LocalMessage>(&line) {
+                            Ok(message) => message,
+                            Err(err) => {
+                                error!(%err, ?line, "Failed to parse message");
+                                continue;
+                            },
+                        };
 
-    pub async fn reset(&mut self) -> Result<()> {
-        self.typed("\n").await?;
-        self.resize(80, 24)?;
-        Ok(())
-    }
+                        let request = match message.request {
+                            Some(request) => request,
+                            None => {
+                                error!("No request in message");
+                                continue;
+                            },
+                        };
 
-    pub async fn buffer(&mut self) -> Option<String> {
-        self.buffer.lock().await.clone()
-    }
-}
+                        let response = match request.request {
+                            Some(local_request::Request::Intercept(request)) => {
+                                let mut state = figterm_state.lock().await;
+                                state.intercept_request = Some(request.clone());
+                                state.intercept_response = None;
 
-impl Drop for Shell {
-    fn drop(&mut self) {
-        self.child.kill().unwrap();
-        self.child.wait().unwrap();
+                                let response = match request.request {
+                                    Some(intercept_request::Request::Show(ShowRequest {})) => {
+                                        state.visible = true;
+                                        LocalResponse {
+                                            response: Some(local_response::Response::Intercept(fig_proto::figterm::InterceptResponse {
+                                                response: Some(fig_proto::figterm::intercept_response::Response::Show(fig_proto::figterm::ShowResponse {})),
+                                            })),
+                                        }
+                                    },
+                                    Some(intercept_request::Request::Hide(HideRequest {})) => {
+                                        state.visible = false;
+                                        LocalResponse {
+                                            response: Some(local_response::Response::Intercept(fig_proto::figterm::InterceptResponse {
+                                                response: Some(fig_proto::figterm::intercept_response::Response::Hide(fig_proto::figterm::HideResponse {})),
+                                            })),
+                                        }
+                                    },
+                                    Some(intercept_request::Request::SetBuffer(SetBufferRequest { buffer, cursor_position })) => {
+                                        state.buffer = buffer.clone();
+                                        state.cursor_position = cursor_position;
+                                        LocalResponse {
+                                            response: Some(local_response::Response::Intercept(fig_proto::figterm::InterceptResponse {
+                                                response: Some(fig_proto::figterm::intercept_response::Response::SetBuffer(fig_proto::figterm::SetBufferResponse {})),
+                                            })),
+                                        }
+                                    },
+                                    Some(intercept_request::Request::EditBuffer(EditBufferRequest { buffer, cursor_position })) => {
+                                        state.buffer = buffer.clone();
+                                        state.cursor_position = cursor_position;
+                                        LocalResponse {
+                                            response: Some(local_response::Response::Intercept(fig_proto::figterm::InterceptResponse {
+                                                response: Some(fig_proto::figterm::intercept_response::Response::EditBuffer(fig_proto::figterm::EditBufferResponse {})),
+                                            })),
+                                        }
+                                    },
+                                    Some(intercept_request::Request::InsertText(InsertTextRequest { text })) => {
+                                        state.buffer.insert_str(state.cursor_position as usize, &text);
+                                        state.cursor_position += text.len() as u32;
+                                        LocalResponse {
+                                            response: Some(local_response::Response::Intercept(fig_proto::figterm::InterceptResponse {
+                                                response: Some(fig_proto::figterm::intercept_response::Response::InsertText(fig_proto::figterm::InsertTextResponse {})),
+                                            })),
+                                        }
+                                    },
+                                    None => {
+                                        error!("No request in intercept request");
+                                        LocalResponse {
+                                            response: Some(local_response::Response::Error(fig_proto::local::ErrorResponse {
+                                                message: "No request in intercept request".to_string(),
+                                            })),
+                                        }
+                                    },
+                                };
+
+                                state.intercept_response = Some(response.clone());
+                                response
+                            },
+                            Some(local_request::Request::Echo(request)) => LocalResponse {
+                                response: Some(local_response::Response::Echo(fig_proto::local::EchoResponse {
+                                    data: request.data,
+                                })),
+                            },
+                            None => {
+                                error!("No request in request");
+                                LocalResponse {
+                                    response: Some(local_response::Response::Error(fig_proto::local::ErrorResponse {
+                                        message: "No request in request".to_string(),
+                                    })),
+                                }
+                            },
+                        };
+
+                        let response = LocalMessage {
+                            request: None,
+                            response: Some(response),
+                        };
+
+                        let response = serde_json::to_string(&response).unwrap();
+                        if let Err(err) = writer.write_all(response.as_bytes()).await {
+                            error!(%err, "Failed to write response");
+                            break;
+                        }
+                        if let Err(err) = writer.write_all(b"\n").await {
+                            error!(%err, "Failed to write newline");
+                            break;
+                        }
+                    },
+                    Err(err) => {
+                        error!(%err, "Failed to read line");
+                        break;
+                    },
+                }
+            }
+        });
+
+        let path = socket_path.clone();
+        tokio::task::spawn(async move {
+            struct RemoteHook {}
+
+            #[async_trait::async_trait]
+            impl fig_remote_ipc::remote::RemoteHook for RemoteHook {
+                async fn on_run_process(&self, _request: &RunProcessRequest) -> Result<Clientbound> {
+                    Ok(Clientbound::RunProcessResponse(fig_proto::remote::RunProcessResponse {}))
+                }
+
+                async fn on_hostbound(&self, _message: &Hostbound) -> Result<()> {
+                    Ok(())
+                }
+            }
+
+            if let Err(err) = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+                fig_remote_ipc::remote::start_remote_ipc(path, figterm_state.clone(), RemoteHook {}).await
+            })
+            .await
+            {
+                error!(%err, "Remote IPC timed out");
+            }
+        });
+
+        let mut child = Command::new(PTY_BINARY_NAME)
+            .arg("--socket")
+            .arg(&socket_path)
+            .arg("--")
+            .arg("bash")
+            .arg("-c")
+            .arg("echo 'Hello, world!'")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .context("Failed to spawn figterm")?;
+
+        // Wait for the child to exit
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // Check if the child is still running
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                return Err(anyhow!("figterm exited with status: {}", status));
+            },
+            Ok(None) => {},
+            Err(err) => {
+                return Err(anyhow!("Failed to check if figterm is running: {}", err));
+            },
+        }
+
+        Ok(Self {
+            child,
+            socket_path,
+        })
     }
 }

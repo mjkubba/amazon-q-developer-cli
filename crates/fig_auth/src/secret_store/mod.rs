@@ -2,11 +2,16 @@
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "windows")]
+mod windows;
 mod sqlite;
+
 #[cfg(target_os = "linux")]
 use linux::SecretStoreImpl;
 #[cfg(target_os = "macos")]
 use macos::SecretStoreImpl;
+#[cfg(target_os = "windows")]
+use windows::SecretStoreImpl;
 
 use crate::Result;
 

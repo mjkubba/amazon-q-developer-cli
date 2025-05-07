@@ -153,7 +153,7 @@ impl FsWrite {
                 )?;
 
                 let mut file = fs.read_to_string(&path).await?;
-                if !file.ends_with_newline() {
+                if !file.ends_with('\n') {
                     file.push('\n');
                 }
                 file.push_str(new_str);
@@ -294,7 +294,7 @@ impl FsWrite {
 
 /// Writes `content` to `path`, adding a newline if necessary.
 async fn write_to_file(ctx: &Context, path: impl AsRef<Path>, mut content: String) -> Result<()> {
-    if !content.ends_with_newline() {
+    if !content.ends_with('\n') {
         content.push('\n');
     }
     ctx.fs().write(path.as_ref(), content).await?;

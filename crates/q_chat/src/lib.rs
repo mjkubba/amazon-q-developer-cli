@@ -689,25 +689,27 @@ impl ChatContext {
             Err(_) => return, // Early return if we can't get the executable path
         };
 
-        if let Some(exe_parent) = exe_path.parent() {
-            let local_bin = match fig_util::directories::home_local_bin().map(|p| p.canonicalize()) {
-                Ok(path) => path,
-                Err(_) => return,
-            };
+        #[cfg(unix)]
+        {
+            if let Some(exe_parent) = exe_path.parent() {
+                let local_bin = match fig_util::directories::home_local_bin().map(|p| p.canonicalize()) {
+                    Ok(path) => path,
+                    Err(_) => return,
+                };
 
-            if let Ok(local_bin) = local_bin {
-                if exe_parent != local_bin {
-                    let _ = self.state.remove_value(UPDATE_AVAILABLE_KEY);
-                    return;
+                if let Ok(local_bin) = local_bin {
+                    if exe_parent != local_bin {
+                        let _ = self.state.remove_value(UPDATE_AVAILABLE_KEY);
+                        return;
+                    }
                 }
             }
-        }
 
-        tokio::spawn(async {
-            let result =
-                tokio::time::timeout(std::time::Duration::from_secs(3), fig_install::check_for_updates(false)).await;
+            tokio::spawn(async {
+                let result =
+                    tokio::time::timeout(std::time::Duration::from_secs(3), fig_install::check_for_updates(false)).await;
 
-            match result {
+                match result {
                 Ok(Ok(Some(new_package))) => {
                     if let Err(err) =
                         fig_settings::state::set_value(UPDATE_AVAILABLE_KEY, new_package.version.to_string())

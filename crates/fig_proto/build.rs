@@ -96,7 +96,8 @@ fn download_protoc() {
             for path in [
                 "C:\\protobuf\\bin\\protoc.exe", 
                 "C:\\Program Files\\protobuf\\bin\\protoc.exe",
-                "C:\\Program Files (x86)\\protobuf\\bin\\protoc.exe"
+                "C:\\Program Files (x86)\\protobuf\\bin\\protoc.exe",
+                "I:\\workspace\\protobuf\\bin\\protoc.exe"  // Add the custom path
             ] {
                 if std::path::Path::new(path).exists() {
                     println!("Found protoc at: {}", path);

@@ -25,7 +25,7 @@ pub async fn update(
         .creation_flags(detached)
         .args(["-L", "-s", "-o"])
         .arg(&installer_path)
-        .arg(&package.download)
+        .arg(package.download_url.as_str())
         .status()?;
 
     std::process::Command::new(installer_path)

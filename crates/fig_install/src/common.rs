@@ -68,8 +68,12 @@ pub async fn uninstall(components: InstallComponents, ctx: Arc<Context>) -> Resu
             }
         };
 
-        // let folders = [directories::home_local_bin()?, Path::new("/usr/local/bin").into()];
+        // Use different folder paths based on platform
+        #[cfg(unix)]
         let folders = [directories::home_local_bin()?];
+        
+        #[cfg(windows)]
+        let folders = [std::env::current_exe()?.parent().unwrap().to_path_buf()];
 
         let mut all_binary_names = vec![CLI_BINARY_NAME, PTY_BINARY_NAME];
         all_binary_names.extend(OLD_CLI_BINARY_NAMES);
@@ -121,7 +125,11 @@ pub async fn uninstall(components: InstallComponents, ctx: Arc<Context>) -> Resu
     }
 
     if components.contains(InstallComponents::DESKTOP_APP) {
+        #[cfg(unix)]
         super::os::uninstall_desktop(&ctx).await?;
+        
+        #[cfg(windows)]
+        tracing::info!("Desktop app uninstallation not implemented for Windows");
         // Must be last -- this will kill the running desktop process if this is
         // called from the desktop app.
         let quit_res = tokio::process::Command::new("killall")

@@ -6618,6 +6618,7 @@ dependencies = [
  "fig_terminal",
  "fig_util",
  "futures",
+ "glob",
  "http 1.2.0",
  "insta",
  "itertools 0.12.1",

@@ -232,14 +232,39 @@ impl Validator for MultiLineValidator {
     }
 }
 
-#[derive(Helper, Completer, Hinter)]
 pub struct ChatHelper {
-    #[rustyline(Completer)]
     completer: ChatCompleter,
-    #[rustyline(Hinter)]
     hinter: (),
     validator: MultiLineValidator,
 }
+
+impl rustyline::completion::Completer for ChatHelper {
+    type Candidate = rustyline::completion::Pair;
+
+    fn complete(
+        &self,
+        line: &str,
+        pos: usize,
+        ctx: &rustyline::Context<'_>,
+    ) -> rustyline::Result<(usize, Vec<Self::Candidate>)> {
+        // Convert String candidates to Pair candidates
+        let result = self.completer.complete(line, pos, ctx)?;
+        let pairs = result.1.into_iter()
+            .map(|s| rustyline::completion::Pair { display: s.clone(), replacement: s })
+            .collect();
+        Ok((result.0, pairs))
+    }
+}
+
+impl rustyline::hint::Hinter for ChatHelper {
+    type Hint = String;
+
+    fn hint(&self, _line: &str, _pos: usize, _ctx: &rustyline::Context<'_>) -> Option<Self::Hint> {
+        None
+    }
+}
+
+impl rustyline::Helper for ChatHelper {}
 
 impl Validator for ChatHelper {
     fn validate(&self, ctx: &mut ValidationContext<'_>) -> rustyline::Result<ValidationResult> {

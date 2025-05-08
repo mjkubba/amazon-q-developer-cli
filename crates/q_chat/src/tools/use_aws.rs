@@ -18,12 +18,12 @@ use tokio::process::Command;
 use tracing::{
     debug,
     error,
-    warn,
 };
 
 use super::{
     OutputKind,
     Tool,
+    InvokeOutput,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,10 +36,8 @@ pub struct UseAws {
     pub profile_name: Option<String>,
 }
 
-impl Tool for UseAws {
-    type Output = OutputKind;
-
-    async fn invoke(&self, ctx: &Context) -> Result<Self::Output> {
+impl UseAws {
+    pub async fn invoke(&self, ctx: &Context) -> Result<OutputKind> {
         let mut cmd = Command::new("aws");
         cmd.arg(self.service_name.as_str())
             .arg(self.operation_name.as_str())
@@ -67,34 +65,52 @@ impl Tool for UseAws {
 
         let output = cmd.output().await?;
 
-        #[cfg(unix)]
-        {
-            let stdout = output.stdout.to_str_lossy();
-            let stderr = output.stderr.to_str_lossy();
+        // Use String::from_utf8_lossy instead of ByteSlice::to_str_lossy for Windows compatibility
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
 
-            if !output.status.success() {
-                error!(?cmd, %stderr, "AWS CLI command failed");
-                bail!("AWS CLI command failed: {}", stderr);
-            }
-
-            debug!(?cmd, %stdout, "AWS CLI command succeeded");
-
-            Ok(OutputKind::Json(stdout.to_string()))
+        if !output.status.success() {
+            error!(?cmd, %stderr, "AWS CLI command failed");
+            bail!("AWS CLI command failed: {}", stderr);
         }
 
-        #[cfg(not(unix))]
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let stderr = String::from_utf8_lossy(&output.stderr);
+        debug!(?cmd, %stdout, "AWS CLI command succeeded");
 
-            if !output.status.success() {
-                error!(?cmd, %stderr, "AWS CLI command failed");
-                bail!("AWS CLI command failed: {}", stderr);
-            }
-
-            debug!(?cmd, %stdout, "AWS CLI command succeeded");
-
-            Ok(OutputKind::Json(stdout.to_string()))
+        // Parse the output as JSON
+        match serde_json::from_str::<serde_json::Value>(&stdout) {
+            Ok(json_value) => Ok(OutputKind::Json(json_value)),
+            Err(_) => Ok(OutputKind::Json(serde_json::Value::String(stdout.to_string())))
         }
+    }
+
+    pub async fn validate(&mut self, _ctx: &Context) -> Result<()> {
+        // Validation logic here
+        Ok(())
+    }
+
+    pub fn requires_acceptance(&self) -> bool {
+        true
+    }
+
+    pub fn queue_description(&self, _updates: &mut impl std::io::Write) -> Result<()> {
+        // Description logic here
+        Ok(())
+    }
+}
+
+impl super::ToolImpl for UseAws {
+    type Output = OutputKind;
+
+    async fn invoke(&self, ctx: &Context, _updates: &mut impl std::io::Write) -> Result<InvokeOutput> {
+        let output = self.invoke(ctx).await?;
+        Ok(InvokeOutput { output })
+    }
+
+    async fn validate(&mut self, ctx: &Context) -> Result<()> {
+        self.validate(ctx).await
+    }
+
+    fn queue_description(&self, updates: &mut impl std::io::Write) -> Result<()> {
+        self.queue_description(updates)
     }
 }

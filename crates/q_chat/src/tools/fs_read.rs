@@ -391,9 +391,10 @@ impl FsDirectory {
                         formatted_date,
                         ent.path().to_string_lossy()
                     ));
-                }
-                if md.is_dir() {
-                    dir_queue.push_back((ent.path(), depth + 1));
+                    
+                    if md.is_dir() {
+                        dir_queue.push_back((ent.path(), depth + 1));
+                    }
                 }
             }
         }

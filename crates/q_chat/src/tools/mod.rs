@@ -32,6 +32,15 @@ use use_aws::UseAws;
 
 use super::consts::MAX_TOOL_RESPONSE_SIZE;
 
+/// Tool implementation trait
+pub trait ToolImpl {
+    type Output;
+
+    async fn invoke(&self, ctx: &Context, updates: &mut impl Write) -> Result<InvokeOutput>;
+    async fn validate(&mut self, ctx: &Context) -> Result<()>;
+    fn queue_description(&self, updates: &mut impl Write) -> Result<()>;
+}
+
 /// Represents an executable tool use.
 #[derive(Debug, Clone)]
 pub enum Tool {
@@ -63,7 +72,7 @@ impl Tool {
             Tool::FsRead(_) => false,
             Tool::FsWrite(_) => true,
             Tool::ExecuteBash(execute_bash) => execute_bash.requires_acceptance(),
-            Tool::UseAws(use_aws) => use_aws.requires_acceptance(),
+            Tool::UseAws(_) => true,
             Tool::Custom(_) => true,
             Tool::GhIssue(_) => false,
         }
@@ -75,7 +84,19 @@ impl Tool {
             Tool::FsRead(fs_read) => fs_read.invoke(context, updates).await,
             Tool::FsWrite(fs_write) => fs_write.invoke(context, updates).await,
             Tool::ExecuteBash(execute_bash) => execute_bash.invoke(updates).await,
-            Tool::UseAws(use_aws) => use_aws.invoke(context, updates).await,
+            Tool::UseAws(use_aws) => {
+                let output = use_aws.invoke(context).await?;
+                match output {
+                    OutputKind::Json(json) => Ok(InvokeOutput {
+                        output: json.to_string(),
+                        output_kind: "json".to_string(),
+                    }),
+                    OutputKind::Text(text) => Ok(InvokeOutput {
+                        output: text,
+                        output_kind: "text".to_string(),
+                    }),
+                }
+            },
             Tool::Custom(custom_tool) => custom_tool.invoke(context, updates).await,
             Tool::GhIssue(gh_issue) => gh_issue.invoke(updates).await,
         }
@@ -228,15 +249,13 @@ pub struct InputSchema(pub serde_json::Value);
 /// The output received from invoking a [Tool].
 #[derive(Debug, Default)]
 pub struct InvokeOutput {
-    pub output: OutputKind,
+    pub output: String,
+    pub output_kind: String,
 }
 
 impl InvokeOutput {
     pub fn as_str(&self) -> &str {
-        match &self.output {
-            OutputKind::Text(s) => s.as_str(),
-            OutputKind::Json(j) => j.as_str().unwrap_or_default(),
-        }
+        self.output.as_str()
     }
 }
 

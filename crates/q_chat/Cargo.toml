@@ -36,6 +36,7 @@ fig_telemetry = { path = "../fig_telemetry" }
 fig_terminal = { path = "../fig_terminal" }
 fig_util = { path = "../fig_util" }
 futures = { workspace = true }
+glob = "0.3.1"
 http = { workspace = true }
 itertools = { workspace = true }
 lazy_static = { workspace = true }

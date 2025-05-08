@@ -154,10 +154,37 @@ use token_counter::{
     TokenCount,
     TokenCounter,
 };
+#[cfg(unix)]
 use tokio::signal::unix::{
     SignalKind,
     signal,
 };
+
+#[cfg(windows)]
+mod windows_signal {
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+    use tokio::signal::windows::CtrlC;
+
+    pub struct CtrlCStream {
+        inner: CtrlC,
+    }
+
+    impl Future for CtrlCStream {
+        type Output = Result<(), std::io::Error>;
+
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            Pin::new(&mut self.inner).poll(cx)
+        }
+    }
+
+    pub async fn signal() -> Result<CtrlCStream, std::io::Error> {
+        Ok(CtrlCStream {
+            inner: tokio::signal::windows::ctrl_c()?
+        })
+    }
+}
 use tool_manager::{
     GetPromptError,
     McpServerConfig,
@@ -710,22 +737,23 @@ impl ChatContext {
                     tokio::time::timeout(std::time::Duration::from_secs(3), fig_install::check_for_updates(false)).await;
 
                 match result {
-                Ok(Ok(Some(new_package))) => {
-                    if let Err(err) =
-                        fig_settings::state::set_value(UPDATE_AVAILABLE_KEY, new_package.version.to_string())
-                    {
-                        warn!(?err, "Error setting {UPDATE_AVAILABLE_KEY}: {err}");
-                    }
-                },
-                Ok(Ok(None)) => {},
-                Ok(Err(err)) => {
-                    warn!(?err, "Error checking for updates: {err}");
-                },
-                Err(_) => {
-                    warn!("Update check timed out");
-                },
-            }
-        });
+                    Ok(Ok(Some(new_package))) => {
+                        if let Err(err) =
+                            fig_settings::state::set_value(UPDATE_AVAILABLE_KEY, new_package.version.to_string())
+                        {
+                            warn!(?err, "Error setting {UPDATE_AVAILABLE_KEY}: {err}");
+                        }
+                    },
+                    Ok(Ok(None)) => {},
+                    Ok(Err(err)) => {
+                        warn!(?err, "Error checking for updates: {err}");
+                    },
+                    Err(_) => {
+                        warn!("Update check timed out");
+                    },
+                }
+            });
+        }
     }
 
     async fn try_chat(&mut self) -> Result<()> {
@@ -836,7 +864,11 @@ impl ChatContext {
         }
         self.output.flush()?;
 
+        #[cfg(unix)]
         let mut ctrl_c_stream = signal(SignalKind::interrupt())?;
+        
+        #[cfg(windows)]
+        let mut ctrl_c_stream = windows_signal::signal()?;
 
         let mut next_state = Some(ChatState::PromptUser {
             tool_uses: None,
@@ -889,7 +921,7 @@ impl ChatContext {
                     let tool_uses_clone = tool_uses.clone();
                     tokio::select! {
                         res = self.handle_input(input, tool_uses, pending_tool_index) => res,
-                        Some(_) = ctrl_c_stream.recv() => Err(ChatError::Interrupted { tool_uses: tool_uses_clone })
+                        _ = ctrl_c_stream => Err(ChatError::Interrupted { tool_uses: tool_uses_clone })
                     }
                 },
                 ChatState::CompactHistory {
@@ -902,25 +934,25 @@ impl ChatContext {
                     let tool_uses_clone = tool_uses.clone();
                     tokio::select! {
                         res = self.compact_history(tool_uses, pending_tool_index, prompt, show_summary, help) => res,
-                        Some(_) = ctrl_c_stream.recv() => Err(ChatError::Interrupted { tool_uses: tool_uses_clone })
+                        _ = ctrl_c_stream => Err(ChatError::Interrupted { tool_uses: tool_uses_clone })
                     }
                 },
                 ChatState::ExecuteTools(tool_uses) => {
                     let tool_uses_clone = tool_uses.clone();
                     tokio::select! {
                         res = self.tool_use_execute(tool_uses) => res,
-                        Some(_) = ctrl_c_stream.recv() => Err(ChatError::Interrupted { tool_uses: Some(tool_uses_clone) })
+                        _ = ctrl_c_stream => Err(ChatError::Interrupted { tool_uses: Some(tool_uses_clone) })
                     }
                 },
                 ChatState::ValidateTools(tool_uses) => {
                     tokio::select! {
                         res = self.validate_tools(tool_uses) => res,
-                        Some(_) = ctrl_c_stream.recv() => Err(ChatError::Interrupted { tool_uses: None })
+                        _ = ctrl_c_stream => Err(ChatError::Interrupted { tool_uses: None })
                     }
                 },
                 ChatState::HandleResponseStream(response) => tokio::select! {
                     res = self.handle_response(response) => res,
-                    Some(_) = ctrl_c_stream.recv() => Err(ChatError::Interrupted { tool_uses: None })
+                    _ = ctrl_c_stream => Err(ChatError::Interrupted { tool_uses: None })
                 },
                 ChatState::Exit => return Ok(()),
             };

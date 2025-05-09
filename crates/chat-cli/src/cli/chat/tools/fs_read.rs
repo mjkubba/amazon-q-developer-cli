@@ -509,6 +509,7 @@ fn format_ftype(md: &Metadata) -> char {
 }
 
 /// Formats a permissions mode into the form used by `ls`, e.g. `0o644` to `rw-r--r--`
+#[allow(dead_code)]
 fn format_mode(mode: u32) -> [char; 9] {
     let mut mode = mode & 0o777;
     let mut res = ['-'; 9];

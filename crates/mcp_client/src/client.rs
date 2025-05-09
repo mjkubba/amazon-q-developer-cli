@@ -222,7 +222,7 @@ where
         }
         
         #[cfg(windows)]
-        if let Some(process_id) = self.server_process_id {
+        if let Some(_process_id) = self.server_process_id {
             // On Windows, we would use a different approach to terminate the process
             // For now, we'll just log that we're not implementing this on Windows
             tracing::warn!("Process termination not implemented on Windows");

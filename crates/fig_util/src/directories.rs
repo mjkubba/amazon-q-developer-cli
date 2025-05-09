@@ -775,10 +775,17 @@ pub fn telemetry_file_for_date_session(date: OffsetDateTime, session: &str) -> R
 }
 
 pub fn telemetry_file_for_date_session_ctx(ctx: &Context, date: OffsetDateTime, session: &str) -> Result<PathBuf> {
-    if ctx.is_real() {
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return telemetry_file_for_date_session(date, session);
+        }
+        return Ok(ctx.fs().chroot_path(telemetry_file_for_date_session(date, session)?));
+    }
+    
+    #[cfg(not(unix))]
+    {
         telemetry_file_for_date_session(date, session)
-    } else {
-        Ok(ctx.fs().chroot_path(telemetry_file_for_date_session(date, session)?))
     }
 }
 

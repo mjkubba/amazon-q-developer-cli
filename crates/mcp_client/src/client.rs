@@ -188,8 +188,11 @@ where
         let stdin = child.stdin.expect("Failed to open stdin");
         let stdout = child.stdout.expect("Failed to open stdout");
 
+        // Create the server process ID based on the platform
         #[cfg(unix)]
         let server_process_id = Some(Pid::from_raw(child.id() as i32));
+        
+        // On Windows, we need to use a different approach
         #[cfg(not(unix))]
         let server_process_id = Some(child.id());
 

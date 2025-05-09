@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::fs::Permissions;
 use std::io;
-<<<<<<< HEAD
 use cfg_if::cfg_if;
 
 cfg_if! {
@@ -12,10 +11,6 @@ cfg_if! {
         use std::os::windows::ffi::OsStrExt as WindowsOsStrExt;
     }
 }
-=======
-#[cfg(unix)]
-use std::os::unix::ffi::OsStrExt;
->>>>>>> dd39398260e37c46e2436d772fce46b6d15ab9c2
 use std::path::{
     Path,
     PathBuf,

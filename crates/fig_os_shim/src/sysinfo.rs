@@ -3,7 +3,7 @@ use std::sync::{
     Mutex,
 };
 
-use sysinfo::{System, SystemExt, ProcessExt};
+use sysinfo::System;
 use crate::Shim;
 
 #[derive(Debug, Clone, Default)]
@@ -39,10 +39,13 @@ impl SysInfo {
         use inner::Inner;
         match &self.0 {
             Inner::Real => {
-                let mut system = System::new_all();
+                let mut system = System::new();
                 system.refresh_all();
-                let is_running = system.processes_by_name(name).next().is_some();
-                is_running
+                // Use a different approach that doesn't rely on processes_by_name
+                system.processes().iter().any(|(_, process)| {
+                    let process_name = process.name();
+                    process_name.contains(name)
+                })
             },
             Inner::Fake(fake) => fake.lock().unwrap().process_names.contains(name),
         }

@@ -27,15 +27,12 @@ mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::*;
 
-<<<<<<< HEAD
 #[cfg(target_os = "windows")]
 mod windows;
 #[cfg(target_os = "windows")]
-=======
-#[cfg(windows)]
-mod windows;
-#[cfg(windows)]
->>>>>>> dd39398260e37c46e2436d772fce46b6d15ab9c2
+use windows as windows_mod;
+#[cfg(target_os = "windows")]
+pub use windows_mod::*;
 pub use windows::*;
 
 /// Represents the interface to accessing info about the currently running process tree.

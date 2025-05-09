@@ -65,7 +65,9 @@ pub fn exe(_ctx: Weak<Context>, pid: &Pid) -> Option<PathBuf> {
         // Check if the operation was successful
         match success {
             Ok(success_bool) => {
-                if success_bool.0 != 0 {
+                // Access the BOOL value directly
+                let bool_value = success_bool.into();
+                if bool_value {
                     let path = CStr::from_ptr(process_name.as_ptr() as *const _)
                         .to_string_lossy()
                         .into_owned();

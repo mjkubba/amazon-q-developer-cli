@@ -348,7 +348,15 @@ pub fn resources_path_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) -> Res
 }
 
 utf8_dir!(resources_path);
-utf8_dir!(resources_path_ctx, ctx: &impl PlatformProvider);
+// For Windows compatibility, don't use the macro for PlatformProvider
+#[cfg(unix)]
+pub fn resources_path_utf8_ctx(ctx: &(impl PlatformProvider + EnvProvider)) -> Result<Utf8PathBuf> {
+    Ok(resources_path_ctx(ctx)?.try_into()?)
+}
+#[cfg(not(unix))]
+pub fn resources_path_utf8_ctx(_ctx: &impl PlatformProvider) -> Result<Utf8PathBuf> {
+    resources_path_utf8()
+}
 
 /// The path to the managed binaries directory
 ///
@@ -392,7 +400,15 @@ pub fn managed_binaries_dir_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) 
 }
 
 utf8_dir!(managed_binaries_dir);
-utf8_dir!(managed_binaries_dir_ctx, ctx: &impl PlatformProvider);
+// For Windows compatibility, don't use the macro for PlatformProvider
+#[cfg(unix)]
+pub fn managed_binaries_dir_utf8_ctx(ctx: &(impl PlatformProvider + EnvProvider)) -> Result<Utf8PathBuf> {
+    Ok(managed_binaries_dir_ctx(ctx)?.try_into()?)
+}
+#[cfg(not(unix))]
+pub fn managed_binaries_dir_utf8_ctx(_ctx: &impl PlatformProvider) -> Result<Utf8PathBuf> {
+    managed_binaries_dir_utf8()
+}
 
 /// The path to the managed binaries manifest
 ///
@@ -424,7 +440,15 @@ pub fn managed_binaries_manifest_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &
 }
 
 utf8_dir!(managed_binaries_manifest);
-utf8_dir!(managed_binaries_manifest_ctx, ctx: &impl PlatformProvider);
+// For Windows compatibility, don't use the macro for PlatformProvider
+#[cfg(unix)]
+pub fn managed_binaries_manifest_utf8_ctx(ctx: &(impl PlatformProvider + EnvProvider)) -> Result<Utf8PathBuf> {
+    Ok(managed_binaries_manifest_ctx(ctx)?.try_into()?)
+}
+#[cfg(not(unix))]
+pub fn managed_binaries_manifest_utf8_ctx(_ctx: &impl PlatformProvider) -> Result<Utf8PathBuf> {
+    managed_binaries_manifest_utf8()
+}
 
 /// The path to the logs directory
 ///

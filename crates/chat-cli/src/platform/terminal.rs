@@ -175,7 +175,7 @@ pub mod unix {
 pub mod windows {
     use super::*;
     use std::io::{stdout, Stdout};
-    use windows::Win32::System::Console::{
+    use ::windows::Win32::System::Console::{
         GetConsoleScreenBufferInfo, 
         SetConsoleCursorPosition, 
         FillConsoleOutputCharacterA, 
@@ -185,6 +185,7 @@ pub mod windows {
         COORD,
         STD_OUTPUT_HANDLE,
     };
+    use ::windows::Win32::Foundation::HANDLE;
     
     /// Windows implementation of TerminalHandler
     pub struct WindowsTerminalHandler {
@@ -198,7 +199,7 @@ pub mod windows {
             }
         }
         
-        fn get_console_handle(&self) -> windows::core::Result<windows::Win32::Foundation::HANDLE> {
+        fn get_console_handle(&self) -> ::windows::core::Result<HANDLE> {
             unsafe { GetStdHandle(STD_OUTPUT_HANDLE) }
         }
         

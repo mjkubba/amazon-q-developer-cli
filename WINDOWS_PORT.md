@@ -44,6 +44,21 @@ The Amazon Q CLI was originally developed for Unix-based systems (macOS and Linu
    - Added Windows-specific protoc handling
    - Added fallback to system protoc when not available
 
+5. **Code Cleanup**
+   - Fixed unused variable warnings by prefixing with underscores
+   - Added appropriate allow attributes for unused code that's kept for reference
+   - Removed unused imports
+
+## Current Status
+
+The Windows port is now functional for the main chat_cli binary. Users can run commands like:
+
+```
+q --help
+q --version
+q chat
+```
+
 ## Known Issues
 
 1. **Full Workspace Build**
@@ -59,7 +74,7 @@ The Amazon Q CLI was originally developed for Unix-based systems (macOS and Linu
    - Create a proper Windows installer package for easy distribution
 
 2. **Fix Remaining Warnings**
-   - Address the remaining warnings in the codebase
+   - Address any remaining warnings in the codebase
 
 3. **Improve Error Handling**
    - Add more detailed error messages for Windows-specific errors

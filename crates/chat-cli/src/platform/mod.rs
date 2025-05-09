@@ -7,6 +7,7 @@ mod fs;
 mod os;
 mod providers;
 mod sysinfo;
+pub mod terminal;
 
 use std::sync::Arc;
 
@@ -22,6 +23,12 @@ pub use providers::{
     SysInfoProvider,
 };
 pub use sysinfo::SysInfo;
+pub use terminal::{
+    TerminalHandler,
+    TerminalColor,
+    TerminalAttribute,
+    create_terminal_handler,
+};
 
 /// Struct that contains the interface to every system related IO operation.
 ///

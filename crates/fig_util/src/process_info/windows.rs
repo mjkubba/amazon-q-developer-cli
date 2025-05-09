@@ -62,11 +62,16 @@ pub fn exe(_ctx: Weak<Context>, pid: &Pid) -> Option<PathBuf> {
         
         let _ = CloseHandle(handle);
         
-        if success.0 != 0 {
-            let path = CStr::from_ptr(process_name.as_ptr() as *const _)
-                .to_string_lossy()
-                .into_owned();
-            Some(PathBuf::from(path))
+        // Check if the operation was successful
+        if let Ok(success_bool) = success {
+            if success_bool.0 != 0 {
+                let path = CStr::from_ptr(process_name.as_ptr() as *const _)
+                    .to_string_lossy()
+                    .into_owned();
+                Some(PathBuf::from(path))
+            } else {
+                None
+            }
         } else {
             None
         }

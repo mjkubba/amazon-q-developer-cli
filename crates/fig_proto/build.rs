@@ -63,88 +63,15 @@ fn download_protoc() {
             if output.status.success() {
                 // Use the locally installed protoc
                 let protoc_path = which::which("protoc").expect("protoc should be in PATH");
-                std::env::set_var("PROTOC", protoc_path);
-                return;
-            }
-        }
-        
-        // On Windows, we'll download a pre-built protoc binary using PowerShell
-        // This is more reliable than using curl on Windows
-        println!("cargo:warning=Downloading protoc using PowerShell...");
-        let download_url = format!(
-            "https://github.com/protocolbuffers/protobuf/releases/download/v{protoc_version}/protoc-{protoc_version}-{os}-{arch}.zip"
-        );
-        
-        let zip_path = tmp_folder.path().join("protoc.zip");
-        let download_script = format!(
-            "Invoke-WebRequest -Uri '{}' -OutFile '{}'",
-            download_url,
-            zip_path.display()
-        );
-        
-        let mut download_command = Command::new("powershell");
-        download_command
-            .arg("-Command")
-            .arg(download_script);
-        
-        let download_result = download_command.output();
-        if let Err(e) = &download_result {
-            println!("cargo:warning=Failed to download protoc: {}", e);
-            // Try to use locally installed protoc as fallback
-            if let Ok(protoc_path) = which::which("protoc") {
                 println!("cargo:warning=Using locally installed protoc at: {}", protoc_path.display());
                 std::env::set_var("PROTOC", protoc_path);
                 return;
-            } else {
-                panic!("Failed to download protoc and no local installation found");
             }
         }
         
-        // Skip checksum verification on Windows
-        
-        // Extract the zip file
-        println!("cargo:warning=Extracting protoc...");
-        let extract_script = format!(
-            "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
-            zip_path.display(),
-            tmp_folder.path().display()
-        );
-        
-        let mut extract_command = Command::new("powershell");
-        extract_command
-            .arg("-Command")
-            .arg(extract_script);
-        
-        let extract_result = extract_command.output();
-        if let Err(e) = &extract_result {
-            println!("cargo:warning=Failed to extract protoc: {}", e);
-            panic!("Failed to extract protoc");
-        }
-        
-        // Copy protoc to the output directory
-        let out_bin = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("protoc.exe");
-        let source_path = tmp_folder.path().join("bin/protoc.exe");
-        
-        println!("cargo:warning=Copying protoc to output directory...");
-        let copy_script = format!(
-            "Copy-Item -Path '{}' -Destination '{}' -Force",
-            source_path.display(),
-            out_bin.display()
-        );
-        
-        let mut copy_command = Command::new("powershell");
-        copy_command
-            .arg("-Command")
-            .arg(copy_script);
-        
-        let copy_result = copy_command.output();
-        if let Err(e) = &copy_result {
-            println!("cargo:warning=Failed to copy protoc: {}", e);
-            panic!("Failed to copy protoc");
-        }
-        
-        // Set the PROTOC environment variable
-        std::env::set_var("PROTOC", out_bin);
+        // On Windows, we'll try to use the protoc from the system
+        println!("cargo:warning=No protoc found in PATH. Setting PROTOC_NO_VENDOR=1 to use system protoc.");
+        std::env::set_var("PROTOC_NO_VENDOR", "1");
         return;
     }
 

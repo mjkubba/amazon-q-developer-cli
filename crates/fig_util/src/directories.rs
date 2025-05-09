@@ -108,11 +108,15 @@ pub fn fig_dir() -> Result<PathBuf> {
 }
 
 pub fn fig_dir_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        fig_dir()
-    } else {
-        Ok(home_dir_ctx(ctx)?.join(".fig"))
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return fig_dir();
+        }
     }
+    
+    Ok(home_dir_ctx(ctx)?.join(".fig"))
 }
 
 utf8_dir!(fig_dir);
@@ -150,10 +154,22 @@ pub fn fig_data_dir() -> Result<PathBuf> {
 }
 
 pub fn fig_data_dir_ctx(fs: &impl FsProvider) -> Result<PathBuf> {
-    if fs.is_real() {
-        fig_data_dir()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if fs.is_real() {
+            return fig_data_dir();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(fs.chroot_path(fig_data_dir()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        fig_data_dir()
     }
 }
 
@@ -178,10 +194,22 @@ pub fn fig_cache_dir() -> Result<PathBuf> {
 }
 
 pub fn fig_cache_dir_ctx(fs: &impl FsProvider) -> Result<PathBuf> {
-    if fs.is_real() {
-        fig_cache_dir()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if fs.is_real() {
+            return fig_cache_dir();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(fs.chroot_path(fig_cache_dir()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        fig_cache_dir()
     }
 }
 
@@ -210,10 +238,22 @@ pub fn fig_runtime_dir() -> Result<PathBuf> {
 }
 
 pub fn fig_runtime_dir_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        fig_runtime_dir()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return fig_runtime_dir();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(fig_runtime_dir()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        fig_runtime_dir()
     }
 }
 
@@ -236,10 +276,22 @@ pub fn sockets_dir() -> Result<PathBuf> {
 }
 
 pub fn sockets_dir_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        sockets_dir()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return sockets_dir();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(sockets_dir()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        sockets_dir()
     }
 }
 
@@ -276,11 +328,23 @@ pub fn resources_path() -> Result<PathBuf> {
 }
 
 pub fn resources_path_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) -> Result<PathBuf> {
-    if ctx.is_real() {
-        resources_path()
-    } else {
-        Ok(ctx.fs().chroot_path(resources_path()?))
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return resources_path();
+        }
     }
+    
+    #[cfg(unix)]
+    {
+        // This requires FsProvider, which we don't have on Windows
+        if let Some(fs) = ctx.fs() {
+            return Ok(fs.chroot_path(resources_path()?));
+        }
+    }
+    
+    resources_path()
 }
 
 utf8_dir!(resources_path);
@@ -308,11 +372,23 @@ pub fn managed_binaries_dir() -> Result<PathBuf> {
 }
 
 pub fn managed_binaries_dir_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) -> Result<PathBuf> {
-    if ctx.is_real() {
-        managed_binaries_dir()
-    } else {
-        Ok(ctx.fs().chroot_path(managed_binaries_dir()?))
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return managed_binaries_dir();
+        }
     }
+    
+    #[cfg(unix)]
+    {
+        // This requires FsProvider, which we don't have on Windows
+        if let Some(fs) = ctx.fs() {
+            return Ok(fs.chroot_path(managed_binaries_dir()?));
+        }
+    }
+    
+    managed_binaries_dir()
 }
 
 utf8_dir!(managed_binaries_dir);
@@ -328,11 +404,23 @@ pub fn managed_binaries_manifest() -> Result<PathBuf> {
 }
 
 pub fn managed_binaries_manifest_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) -> Result<PathBuf> {
-    if ctx.is_real() {
-        managed_binaries_manifest()
-    } else {
-        Ok(ctx.fs().chroot_path(managed_binaries_manifest()?))
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return managed_binaries_manifest();
+        }
     }
+    
+    #[cfg(unix)]
+    {
+        // This requires FsProvider, which we don't have on Windows
+        if let Some(fs) = ctx.fs() {
+            return Ok(fs.chroot_path(managed_binaries_manifest()?));
+        }
+    }
+    
+    managed_binaries_manifest()
 }
 
 utf8_dir!(managed_binaries_manifest);
@@ -360,10 +448,22 @@ pub fn logs_dir() -> Result<PathBuf> {
 }
 
 pub fn logs_dir_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        logs_dir()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return logs_dir();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(logs_dir()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        logs_dir()
     }
 }
 

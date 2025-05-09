@@ -67,6 +67,85 @@ fn download_protoc() {
                 return;
             }
         }
+        
+        // On Windows, we'll download a pre-built protoc binary using PowerShell
+        // This is more reliable than using curl on Windows
+        println!("cargo:warning=Downloading protoc using PowerShell...");
+        let download_url = format!(
+            "https://github.com/protocolbuffers/protobuf/releases/download/v{protoc_version}/protoc-{protoc_version}-{os}-{arch}.zip"
+        );
+        
+        let zip_path = tmp_folder.path().join("protoc.zip");
+        let download_script = format!(
+            "Invoke-WebRequest -Uri '{}' -OutFile '{}'",
+            download_url,
+            zip_path.display()
+        );
+        
+        let mut download_command = Command::new("powershell");
+        download_command
+            .arg("-Command")
+            .arg(download_script);
+        
+        let download_result = download_command.output();
+        if let Err(e) = &download_result {
+            println!("cargo:warning=Failed to download protoc: {}", e);
+            // Try to use locally installed protoc as fallback
+            if let Ok(protoc_path) = which::which("protoc") {
+                println!("cargo:warning=Using locally installed protoc at: {}", protoc_path.display());
+                std::env::set_var("PROTOC", protoc_path);
+                return;
+            } else {
+                panic!("Failed to download protoc and no local installation found");
+            }
+        }
+        
+        // Skip checksum verification on Windows
+        
+        // Extract the zip file
+        println!("cargo:warning=Extracting protoc...");
+        let extract_script = format!(
+            "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
+            zip_path.display(),
+            tmp_folder.path().display()
+        );
+        
+        let mut extract_command = Command::new("powershell");
+        extract_command
+            .arg("-Command")
+            .arg(extract_script);
+        
+        let extract_result = extract_command.output();
+        if let Err(e) = &extract_result {
+            println!("cargo:warning=Failed to extract protoc: {}", e);
+            panic!("Failed to extract protoc");
+        }
+        
+        // Copy protoc to the output directory
+        let out_bin = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("protoc.exe");
+        let source_path = tmp_folder.path().join("bin/protoc.exe");
+        
+        println!("cargo:warning=Copying protoc to output directory...");
+        let copy_script = format!(
+            "Copy-Item -Path '{}' -Destination '{}' -Force",
+            source_path.display(),
+            out_bin.display()
+        );
+        
+        let mut copy_command = Command::new("powershell");
+        copy_command
+            .arg("-Command")
+            .arg(copy_script);
+        
+        let copy_result = copy_command.output();
+        if let Err(e) = &copy_result {
+            println!("cargo:warning=Failed to copy protoc: {}", e);
+            panic!("Failed to copy protoc");
+        }
+        
+        // Set the PROTOC environment variable
+        std::env::set_var("PROTOC", out_bin);
+        return;
     }
 
     let mut download_command = Command::new("curl");
@@ -78,24 +157,9 @@ fn download_protoc() {
         .arg("-o")
         .arg(tmp_folder.path().join("protoc.zip"));
     
-    // Don't assert on Windows, as curl might not be available
-    #[cfg(not(target_os = "windows"))]
     assert!(download_command.spawn().unwrap().wait().unwrap().success());
-    
-    #[cfg(target_os = "windows")]
-    {
-        let result = download_command.spawn();
-        if result.is_err() {
-            println!("cargo:warning=Failed to download protoc on Windows. Using pre-installed protoc if available.");
-        } else if let Ok(mut child) = result {
-            let _ = child.wait(); // Don't assert on the result
-        }
-    }
 
-    let checksum_output = if cfg!(target_os = "windows") {
-        // Skip checksum verification on Windows for now
-        format!("{} ", checksum)
-    } else {
+    let checksum_output = {
         let mut checksum_command = Command::new("sha256sum");
         checksum_command.arg(tmp_folder.path().join("protoc.zip"));
         let checksum_output = checksum_command.output().unwrap();
@@ -105,49 +169,18 @@ fn download_protoc() {
     eprintln!("checksum: {checksum_output:?}");
     assert!(checksum_output.starts_with(checksum));
 
-    let unzip_success = if cfg!(target_os = "windows") {
-        // Use PowerShell to unzip on Windows
-        let mut unzip_command = Command::new("powershell");
-        unzip_command
-            .arg("-Command")
-            .arg(format!(
-                "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
-                tmp_folder.path().join("protoc.zip").display(),
-                tmp_folder.path().display()
-            ));
-        unzip_command.spawn().unwrap().wait().unwrap().success()
-    } else {
-        let mut unzip_command = Command::new("unzip");
-        unzip_command
-            .arg("-o")
-            .arg(tmp_folder.path().join("protoc.zip"))
-            .current_dir(tmp_folder.path());
-        unzip_command.spawn().unwrap().wait().unwrap().success()
-    };
+    let mut unzip_command = Command::new("unzip");
+    unzip_command
+        .arg("-o")
+        .arg(tmp_folder.path().join("protoc.zip"))
+        .current_dir(tmp_folder.path());
+    let unzip_success = unzip_command.spawn().unwrap().wait().unwrap().success();
     assert!(unzip_success);
 
-    let out_bin = if cfg!(target_os = "windows") {
-        PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("protoc.exe")
-    } else {
-        PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("protoc")
-    };
-
-    let move_success = if cfg!(target_os = "windows") {
-        // Use PowerShell to move files on Windows
-        let source_path = tmp_folder.path().join("bin/protoc.exe");
-        let mut mv = Command::new("powershell");
-        mv.arg("-Command")
-            .arg(format!(
-                "Copy-Item -Path '{}' -Destination '{}' -Force",
-                source_path.display(),
-                out_bin.display()
-            ));
-        mv.spawn().unwrap().wait().unwrap().success()
-    } else {
-        let mut mv = Command::new("mv");
-        mv.arg(tmp_folder.path().join("bin/protoc")).arg(&out_bin);
-        mv.spawn().unwrap().wait().unwrap().success()
-    };
+    let out_bin = PathBuf::from(std::env::var("OUT_DIR").unwrap()).join("protoc");
+    let mut mv = Command::new("mv");
+    mv.arg(tmp_folder.path().join("bin/protoc")).arg(&out_bin);
+    let move_success = mv.spawn().unwrap().wait().unwrap().success();
     assert!(move_success);
 
     std::env::set_var("PROTOC", out_bin);

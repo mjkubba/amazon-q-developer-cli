@@ -1,4 +1,5 @@
 #[cfg(windows)]
+#[allow(dead_code)]
 pub const APP_PROCESS_NAME: &str = "q_desktop.exe";
 
 pub const CHAT_BINARY_NAME: &str = "qchat";

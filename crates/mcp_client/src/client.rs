@@ -200,6 +200,7 @@ where
             }
         };
 
+        // Create the client with the server process ID
         let mut client = Self {
             transport: T::from(stdout),
             server_info: None,

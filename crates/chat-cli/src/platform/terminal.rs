@@ -184,6 +184,7 @@ pub mod windows {
         CONSOLE_SCREEN_BUFFER_INFO,
         COORD,
         STD_OUTPUT_HANDLE,
+        CONSOLE_CHARACTER_ATTRIBUTES,
     };
     use ::windows::Win32::Foundation::HANDLE;
     
@@ -238,7 +239,7 @@ pub mod windows {
             unsafe { 
                 FillConsoleOutputCharacterA(
                     handle, 
-                    b' ' as u8, 
+                    b' ' as i8, 
                     width as u32, 
                     new_pos, 
                     &mut chars_written
@@ -280,7 +281,7 @@ pub mod windows {
             let info = self.get_console_info().ok_or_else(|| eyre::eyre!("Failed to get console info"))?;
             
             // Get current background color and keep it
-            let bg_color = info.wAttributes & 0xF0;
+            let bg_color = info.wAttributes.0 & 0xF0;
             
             // Set new foreground color
             let fg_color = match color {
@@ -302,7 +303,7 @@ pub mod windows {
                 TerminalColor::BrightWhite => 15,
             };
             
-            unsafe { SetConsoleTextAttribute(handle, bg_color | fg_color)?; }
+            unsafe { SetConsoleTextAttribute(handle, CONSOLE_CHARACTER_ATTRIBUTES(bg_color | fg_color))?; }
             
             Ok(())
         }
@@ -311,7 +312,7 @@ pub mod windows {
             let handle = self.get_console_handle()?;
             
             // Default color is white on black (7)
-            unsafe { SetConsoleTextAttribute(handle, 7)?; }
+            unsafe { SetConsoleTextAttribute(handle, CONSOLE_CHARACTER_ATTRIBUTES(7))?; }
             
             Ok(())
         }
@@ -320,7 +321,7 @@ pub mod windows {
             let handle = self.get_console_handle()?;
             let info = self.get_console_info().ok_or_else(|| eyre::eyre!("Failed to get console info"))?;
             
-            let current_attr = info.wAttributes;
+            let current_attr = info.wAttributes.0;
             let new_attr = match attribute {
                 TerminalAttribute::Bold => current_attr | 8, // FOREGROUND_INTENSITY
                 TerminalAttribute::Dim => current_attr,      // Not supported
@@ -336,7 +337,7 @@ pub mod windows {
                 TerminalAttribute::Hidden => current_attr,   // Not supported
             };
             
-            unsafe { SetConsoleTextAttribute(handle, new_attr)?; }
+            unsafe { SetConsoleTextAttribute(handle, CONSOLE_CHARACTER_ATTRIBUTES(new_attr))?; }
             
             Ok(())
         }
@@ -344,7 +345,7 @@ pub mod windows {
         fn reset_attribute(&mut self) -> Result<()> {
             // Reset to default attributes (white on black)
             let handle = self.get_console_handle()?;
-            unsafe { SetConsoleTextAttribute(handle, 7)?; }
+            unsafe { SetConsoleTextAttribute(handle, CONSOLE_CHARACTER_ATTRIBUTES(7))?; }
             
             Ok(())
         }

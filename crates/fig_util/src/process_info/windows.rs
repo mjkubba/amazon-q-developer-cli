@@ -5,7 +5,7 @@ use std::sync::Weak;
 use ::windows::Win32::Foundation::{
     CloseHandle,
     MAX_PATH,
-    BOOL,
+    // BOOL is unused, remove it
 };
 use ::windows::Win32::System::Threading::{
     GetCurrentProcessId,

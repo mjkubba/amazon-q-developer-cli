@@ -79,13 +79,22 @@ pub trait PidExt {
     fn cmdline(&self) -> Option<String>;
 }
 
+// Add the missing get_parent_process_exe function
+pub fn get_parent_process_exe() -> Option<PathBuf> {
+    let pid = Pid::current();
+    if let Some(parent) = pid.parent() {
+        return parent.exe();
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_current_pid() {
-        let mut pid = Pid::current();
+        let pid = Pid::current();
         assert!(pid.0 > 0);
     }
 

@@ -1,26 +1,25 @@
 use std::ffi::CStr;
 use std::path::PathBuf;
+use std::sync::Weak;
 
-use windows::Win32::Foundation::{
+use ::windows::Win32::Foundation::{
     CloseHandle,
-    HANDLE,
     MAX_PATH,
     BOOL,
 };
-use windows::Win32::System::Threading::{
+use ::windows::Win32::System::Threading::{
     GetCurrentProcessId,
     OpenProcess,
     PROCESS_NAME_FORMAT,
     PROCESS_QUERY_LIMITED_INFORMATION,
     QueryFullProcessImageNameA,
 };
-use windows::core::PSTR;
+use ::windows::core::PSTR;
 
-use super::Pid;
-use std::sync::Weak;
+use super::{Pid, PidExt};
 use fig_os_shim::Context;
 
-pub fn current(ctx: Weak<Context>) -> Pid {
+pub fn current(_ctx: Weak<Context>) -> Pid {
     let pid = unsafe { GetCurrentProcessId() };
     Pid(pid)
 }
@@ -33,14 +32,19 @@ pub fn parent(_ctx: Weak<Context>, _pid: &Pid) -> Option<Box<Pid>> {
 }
 
 pub fn exe(_ctx: Weak<Context>, pid: &Pid) -> Option<PathBuf> {
-    let handle = unsafe {
+    let handle_result = unsafe {
         OpenProcess(
             PROCESS_QUERY_LIMITED_INFORMATION,
             false,
             pid.0,
         )
     };
-
+    
+    let handle = match handle_result {
+        Ok(h) => h,
+        Err(_) => return None,
+    };
+    
     if handle.is_invalid() {
         return None;
     }
@@ -86,5 +90,24 @@ trait BoolExt {
 impl BoolExt for BOOL {
     fn as_bool(self) -> bool {
         self.0 != 0
+    }
+}
+
+// Implement PidExt for Pid
+impl PidExt for Pid {
+    fn current() -> Self {
+        current(Weak::new())
+    }
+
+    fn parent(&self) -> Option<Box<Self>> {
+        parent(Weak::new(), self)
+    }
+
+    fn exe(&self) -> Option<PathBuf> {
+        exe(Weak::new(), self)
+    }
+
+    fn cmdline(&self) -> Option<String> {
+        cmdline(Weak::new(), self)
     }
 }

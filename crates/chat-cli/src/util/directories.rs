@@ -38,10 +38,10 @@ type Result<T, E = DirectoryError> = std::result::Result<T, E>;
 /// - Linux: /home/Alice
 /// - MacOS: /Users/Alice
 /// - Windows: C:\Users\Alice
-pub fn home_dir(ctx: &Context) -> Result<PathBuf> {
+pub fn home_dir(_ctx: &Context) -> Result<PathBuf> {
     #[cfg(unix)]
     match cfg!(test) {
-        true => ctx
+        true => _ctx
             .env()
             .get("HOME")
             .map_err(|_err| DirectoryError::NoHomeDirectory)

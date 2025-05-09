@@ -4,8 +4,11 @@
 pub mod diagnostics;
 mod env;
 mod fs;
+mod input;
 mod os;
+mod process;
 mod providers;
+mod signal;
 mod sysinfo;
 pub mod terminal;
 
@@ -13,14 +16,32 @@ use std::sync::Arc;
 
 pub use env::Env;
 pub use fs::Fs;
+pub use input::{
+    InputHandler,
+    KeyEvent,
+    create_input_handler,
+};
 pub use os::{
     Os,
     Platform,
+};
+pub use process::{
+    ProcessExecutor,
+    create_process_executor,
 };
 pub use providers::{
     EnvProvider,
     FsProvider,
     SysInfoProvider,
+};
+pub use signal::{
+    Signal,
+    SignalHandler,
+    CtrlCHandlerFn,
+    ResizeHandlerFn,
+    create_signal_handler,
+    handle_ctrl_c,
+    handle_resize,
 };
 pub use sysinfo::SysInfo;
 pub use terminal::{

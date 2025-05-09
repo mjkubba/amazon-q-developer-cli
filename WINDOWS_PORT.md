@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes the work done to port the Amazon Q CLI to Windows. The port focused on ensuring that the core functionality of the CLI works on Windows, with special attention to platform-specific differences in file paths, process handling, and signal handling.
+This document summarizes the work done to port the Amazon Q CLI to Windows. The port focused on ensuring that the core functionality of the CLI works on Windows, with special attention to platform-specific differences in file paths, process handling, signal handling, and terminal interaction.
 
 ## Key Changes
 
@@ -23,6 +23,11 @@ This document summarizes the work done to port the Amazon Q CLI to Windows. The 
    - Implemented Windows-specific signal handling for Ctrl+C
    - Fixed async/await issues with Windows signal handling
 
+4. **Terminal Handling**
+   - Created a platform-agnostic `TerminalHandler` trait
+   - Implemented Windows-specific terminal handling using the Windows Console API
+   - Added support for colors, cursor movement, and text attributes on Windows
+
 ### Directory Structure
 
 1. **File Paths**
@@ -34,6 +39,18 @@ This document summarizes the work done to port the Amazon Q CLI to Windows. The 
    - Updated configuration file locations to use Windows standards
    - Ensured proper permissions for reading/writing config files
    - Fixed path handling for user data and cache directories
+
+### Process Management
+
+1. **Process Creation**
+   - Implemented Windows-specific process creation
+   - Added proper error handling for Windows process operations
+   - Fixed issues with process group handling
+
+2. **Process Termination**
+   - Implemented Windows-specific process termination using the Windows API
+   - Added proper error handling for Windows process termination
+   - Fixed issues with process cleanup on exit
 
 ### Build System
 
@@ -56,20 +73,21 @@ The Windows port has been tested on Windows 10 and Windows 11. The following fun
 - File system operations
 - Process execution
 - Signal handling (Ctrl+C)
+- Terminal colors and formatting
 
 ## Known Issues
 
-1. **Process Termination**
-   - Windows process termination is not fully implemented
-   - Need to use Windows-specific APIs for proper process termination
+1. **Terminal Compatibility**
+   - Some advanced terminal features may not work in all Windows terminals
+   - Need to test with different terminal emulators (PowerShell, CMD, Windows Terminal)
 
 2. **File System Permissions**
    - Some file system operations may require elevated permissions on Windows
    - Need to add proper error handling for permission issues
 
-3. **Terminal Compatibility**
-   - Some advanced terminal features may not work in all Windows terminals
-   - Need to test with different terminal emulators
+3. **Unicode Support**
+   - Some Unicode characters may not display correctly in all Windows terminals
+   - Need to test with different terminal emulators and encodings
 
 ## Future Work
 
@@ -88,8 +106,13 @@ The Windows port has been tested on Windows 10 and Windows 11. The following fun
    - Reduce startup time
    - Improve file system operations
 
+4. **Testing Framework**
+   - Add Windows-specific tests
+   - Ensure CI/CD pipeline runs tests on Windows
+   - Add integration tests for Windows-specific features
+
 ## Conclusion
 
-The Windows port of the Amazon Q CLI is now functional and can be used for basic operations. The core functionality works as expected, and the CLI can be built and run on Windows systems. Further work is needed to improve the user experience and add Windows-specific features.
+The Windows port of the Amazon Q CLI is now functional and can be used for basic operations. The core functionality works as expected, and the CLI can be built and run on Windows systems. Further work is needed to improve the user experience and add Windows-specific features, but the foundation is solid.
 
 🤖 Assisted by Amazon Q Developer

@@ -107,11 +107,8 @@ pub mod windows {
                 // In a real implementation, we would need to set up a Windows-specific
                 // way to wait for signals
                 
-                let mut ctrl_c = tokio::signal::ctrl_c()?;
-                
-                tokio::select! {
-                    _ = ctrl_c => Ok(Signal::Interrupt),
-                }
+                let ctrl_c = tokio::signal::ctrl_c().await?;
+                Ok(Signal::Interrupt)
             })
         }
     }

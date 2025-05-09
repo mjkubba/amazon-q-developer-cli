@@ -44,7 +44,7 @@ impl SysInfo {
                 // Use a different approach that doesn't rely on processes_by_name
                 system.processes().iter().any(|(_, process)| {
                     let process_name = process.name();
-                    process_name.contains(name)
+                    process_name.to_string_lossy().contains(name)
                 })
             },
             Inner::Fake(fake) => fake.lock().unwrap().process_names.contains(name),

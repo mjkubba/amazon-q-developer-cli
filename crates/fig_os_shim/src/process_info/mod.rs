@@ -33,7 +33,6 @@ mod windows;
 use windows as windows_mod;
 #[cfg(target_os = "windows")]
 pub use windows_mod::*;
-pub use windows::*;
 
 /// Represents the interface to accessing info about the currently running process tree.
 #[derive(Debug, Clone)]

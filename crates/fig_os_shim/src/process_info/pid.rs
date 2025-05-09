@@ -118,11 +118,7 @@ cfg_if! {
         }
     } else if #[cfg(windows)] {
         pid_decl!(u32);
-<<<<<<< HEAD
         
-=======
-
->>>>>>> dd39398260e37c46e2436d772fce46b6d15ab9c2
         impl RawPid {
             pub fn as_u32(&self) -> u32 {
                 self.0

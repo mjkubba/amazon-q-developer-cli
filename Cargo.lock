@@ -3200,6 +3200,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.12",
  "uuid",
+ "which 6.0.3",
 ]
 
 [[package]]

@@ -189,16 +189,10 @@ where
         let stdout = child.stdout.expect("Failed to open stdout");
 
         // Create the server process ID based on the platform
-        let server_process_id = {
-            #[cfg(unix)]
-            {
-                Some(Pid::from_raw(child.id() as i32))
-            }
-            #[cfg(not(unix))]
-            {
-                Some(child.id())
-            }
-        };
+        #[cfg(unix)]
+        let server_process_id = Some(Pid::from_raw(child.id() as i32));
+        #[cfg(not(unix))]
+        let server_process_id = Some(child.id());
 
         // Create the client with the server process ID
         let mut client = Self {

@@ -77,7 +77,20 @@ fn download_protoc() {
         ))
         .arg("-o")
         .arg(tmp_folder.path().join("protoc.zip"));
+    
+    // Don't assert on Windows, as curl might not be available
+    #[cfg(not(target_os = "windows"))]
     assert!(download_command.spawn().unwrap().wait().unwrap().success());
+    
+    #[cfg(target_os = "windows")]
+    {
+        let result = download_command.spawn();
+        if result.is_err() {
+            println!("cargo:warning=Failed to download protoc on Windows. Using pre-installed protoc if available.");
+        } else if let Ok(mut child) = result {
+            let _ = child.wait(); // Don't assert on the result
+        }
+    }
 
     let checksum_output = if cfg!(target_os = "windows") {
         // Skip checksum verification on Windows for now

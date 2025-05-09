@@ -480,10 +480,22 @@ pub fn log_file() -> Result<PathBuf> {
 }
 
 pub fn log_file_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        log_file()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return log_file();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(log_file()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        log_file()
     }
 }
 
@@ -501,10 +513,22 @@ pub fn log_file_for_date(date: OffsetDateTime) -> Result<PathBuf> {
 }
 
 pub fn log_file_for_date_ctx(ctx: &Context, date: OffsetDateTime) -> Result<PathBuf> {
-    if ctx.is_real() {
-        log_file_for_date(date)
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return log_file_for_date(date);
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(log_file_for_date(date)?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        log_file_for_date(date)
     }
 }
 
@@ -533,10 +557,22 @@ pub fn config_dir() -> Result<PathBuf> {
 }
 
 pub fn config_dir_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        config_dir()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return config_dir();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(config_dir()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        config_dir()
     }
 }
 
@@ -553,10 +589,22 @@ pub fn config_file() -> Result<PathBuf> {
 }
 
 pub fn config_file_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        config_file()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return config_file();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(config_file()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        config_file()
     }
 }
 
@@ -573,10 +621,22 @@ pub fn credentials_file() -> Result<PathBuf> {
 }
 
 pub fn credentials_file_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        credentials_file()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return credentials_file();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(credentials_file()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        credentials_file()
     }
 }
 
@@ -593,10 +653,22 @@ pub fn telemetry_dir() -> Result<PathBuf> {
 }
 
 pub fn telemetry_dir_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        telemetry_dir()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return telemetry_dir();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(telemetry_dir()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        telemetry_dir()
     }
 }
 
@@ -613,10 +685,22 @@ pub fn telemetry_file() -> Result<PathBuf> {
 }
 
 pub fn telemetry_file_ctx(ctx: &Context) -> Result<PathBuf> {
-    if ctx.is_real() {
-        telemetry_file()
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return telemetry_file();
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(telemetry_file()?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        telemetry_file()
     }
 }
 
@@ -634,10 +718,22 @@ pub fn telemetry_file_for_date(date: OffsetDateTime) -> Result<PathBuf> {
 }
 
 pub fn telemetry_file_for_date_ctx(ctx: &Context, date: OffsetDateTime) -> Result<PathBuf> {
-    if ctx.is_real() {
-        telemetry_file_for_date(date)
-    } else {
+    // For Windows compatibility, don't use is_real()
+    #[cfg(unix)]
+    {
+        if ctx.env().is_real() {
+            return telemetry_file_for_date(date);
+        }
+    }
+    
+    #[cfg(unix)]
+    {
         Ok(ctx.fs().chroot_path(telemetry_file_for_date(date)?))
+    }
+    
+    #[cfg(not(unix))]
+    {
+        telemetry_file_for_date(date)
     }
 }
 

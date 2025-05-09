@@ -62,7 +62,7 @@ pub fn exe(_ctx: Weak<Context>, pid: &Pid) -> Option<PathBuf> {
         
         let _ = CloseHandle(handle);
         
-        if success.as_bool() {
+        if success.0 != 0 {
             let path = CStr::from_ptr(process_name.as_ptr() as *const _)
                 .to_string_lossy()
                 .into_owned();
@@ -83,15 +83,15 @@ pub fn cmdline(_ctx: Weak<Context>, _pid: &Pid) -> Option<String> {
 }
 
 // Helper extension trait for BOOL
-trait BoolExt {
-    fn as_bool(self) -> bool;
-}
+// trait BoolExt {
+//     fn as_bool(self) -> bool;
+// }
 
-impl BoolExt for BOOL {
-    fn as_bool(self) -> bool {
-        self.0 != 0
-    }
-}
+// impl BoolExt for BOOL {
+//     fn as_bool(self) -> bool {
+//         self.0 != 0
+//     }
+// }
 
 // Implement PidExt for Pid
 impl PidExt for Pid {

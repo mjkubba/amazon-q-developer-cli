@@ -227,7 +227,7 @@ where
         if let Some(process_id) = self.server_process_id {
             // On Windows, we use the Windows API to terminate the process
             use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
-            use windows::Win32::Foundation::{BOOL, CloseHandle};
+            use windows::Win32::Foundation::CloseHandle;
             
             unsafe {
                 // Open the process with termination rights

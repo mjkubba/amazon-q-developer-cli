@@ -60,7 +60,7 @@ pub fn exe(_ctx: Weak<Context>, pid: &Pid) -> Option<PathBuf> {
             &mut len,
         );
         
-        CloseHandle(handle);
+        let _ = CloseHandle(handle);
         
         if success.as_bool() {
             let path = CStr::from_ptr(process_name.as_ptr() as *const _)

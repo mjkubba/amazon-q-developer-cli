@@ -153,18 +153,18 @@ pub fn fig_data_dir() -> Result<PathBuf> {
     }
 }
 
-pub fn fig_data_dir_ctx(fs: &impl FsProvider) -> Result<PathBuf> {
+pub fn fig_data_dir_ctx(_fs: &impl FsProvider) -> Result<PathBuf> {
     // For Windows compatibility, don't use is_real()
     #[cfg(unix)]
     {
-        if fs.is_real() {
+        if _fs.is_real() {
             return fig_data_dir();
         }
     }
     
     #[cfg(unix)]
     {
-        Ok(fs.chroot_path(fig_data_dir()?))
+        Ok(_fs.chroot_path(fig_data_dir()?))
     }
     
     #[cfg(not(unix))]
@@ -193,18 +193,18 @@ pub fn fig_cache_dir() -> Result<PathBuf> {
     }
 }
 
-pub fn fig_cache_dir_ctx(fs: &impl FsProvider) -> Result<PathBuf> {
+pub fn fig_cache_dir_ctx(_fs: &impl FsProvider) -> Result<PathBuf> {
     // For Windows compatibility, don't use is_real()
     #[cfg(unix)]
     {
-        if fs.is_real() {
+        if _fs.is_real() {
             return fig_cache_dir();
         }
     }
     
     #[cfg(unix)]
     {
-        Ok(fs.chroot_path(fig_cache_dir()?))
+        Ok(_fs.chroot_path(fig_cache_dir()?))
     }
     
     #[cfg(not(unix))]
@@ -237,18 +237,18 @@ pub fn fig_runtime_dir() -> Result<PathBuf> {
     }
 }
 
-pub fn fig_runtime_dir_ctx(ctx: &Context) -> Result<PathBuf> {
+pub fn fig_runtime_dir_ctx(_ctx: &Context) -> Result<PathBuf> {
     // For Windows compatibility, don't use is_real()
     #[cfg(unix)]
     {
-        if ctx.env().is_real() {
+        if _ctx.env().is_real() {
             return fig_runtime_dir();
         }
     }
     
     #[cfg(unix)]
     {
-        Ok(ctx.fs().chroot_path(fig_runtime_dir()?))
+        Ok(_ctx.fs().chroot_path(fig_runtime_dir()?))
     }
     
     #[cfg(not(unix))]
@@ -275,18 +275,18 @@ pub fn sockets_dir() -> Result<PathBuf> {
     }
 }
 
-pub fn sockets_dir_ctx(ctx: &Context) -> Result<PathBuf> {
+pub fn sockets_dir_ctx(_ctx: &Context) -> Result<PathBuf> {
     // For Windows compatibility, don't use is_real()
     #[cfg(unix)]
     {
-        if ctx.env().is_real() {
+        if _ctx.env().is_real() {
             return sockets_dir();
         }
     }
     
     #[cfg(unix)]
     {
-        Ok(ctx.fs().chroot_path(sockets_dir()?))
+        Ok(_ctx.fs().chroot_path(sockets_dir()?))
     }
     
     #[cfg(not(unix))]
@@ -327,11 +327,11 @@ pub fn resources_path() -> Result<PathBuf> {
     }
 }
 
-pub fn resources_path_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) -> Result<PathBuf> {
+pub fn resources_path_ctx<Ctx: EnvProvider + PlatformProvider>(_ctx: &Ctx) -> Result<PathBuf> {
     // For Windows compatibility, don't use is_real()
     #[cfg(unix)]
     {
-        if ctx.env().is_real() {
+        if _ctx.env().is_real() {
             return resources_path();
         }
     }
@@ -339,7 +339,7 @@ pub fn resources_path_ctx<Ctx: EnvProvider + PlatformProvider>(ctx: &Ctx) -> Res
     #[cfg(unix)]
     {
         // This requires FsProvider, which we don't have on Windows
-        if let Some(fs) = ctx.fs() {
+        if let Some(fs) = _ctx.fs() {
             return Ok(fs.chroot_path(resources_path()?));
         }
     }

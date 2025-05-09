@@ -126,7 +126,7 @@ where
     #[cfg(unix)]
     server_process_id: Option<ProcessId>,
     #[cfg(not(unix))]
-    server_process_id: Option<u32>,
+    server_process_id: Option<ProcessId>,
     connected: AtomicBool,
     pending_requests: Arc<SyncRwLock<HashMap<String, tokio::sync::oneshot::Sender<Response>>>>,
 }

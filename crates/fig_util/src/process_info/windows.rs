@@ -1,9 +1,4 @@
 use std::ffi::CStr;
-use std::mem::{
-    MaybeUninit,
-    size_of,
-};
-use std::ops::Deref;
 use std::path::PathBuf;
 
 use windows::Win32::Foundation::{
@@ -16,34 +11,28 @@ use windows::Win32::System::Threading::{
     GetCurrentProcessId,
     OpenProcess,
     PROCESS_NAME_FORMAT,
-    PROCESS_QUERY_INFORMATION,
     PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESS_VM_READ,
     QueryFullProcessImageNameA,
 };
-use windows::core::{PSTR, Error};
+use windows::core::PSTR;
 
-use super::{
-    Pid,
-    PidExt,
-    RawPid,
-};
+use super::Pid;
 use std::sync::Weak;
 use fig_os_shim::Context;
 
 pub fn current(ctx: Weak<Context>) -> Pid {
     let pid = unsafe { GetCurrentProcessId() };
-    Pid::Real(ctx, RawPid(pid))
+    Pid(pid)
 }
 
-pub fn parent(ctx: Weak<Context>, pid: &RawPid) -> Option<Box<Pid>> {
+pub fn parent(_ctx: Weak<Context>, _pid: &Pid) -> Option<Box<Pid>> {
     // This is a simplified implementation for Windows
     // In a real implementation, we would need to use the Windows API to get the parent process ID
     // For now, we'll just return None
     None
 }
 
-pub fn exe(ctx: Weak<Context>, pid: &RawPid) -> Option<PathBuf> {
+pub fn exe(_ctx: Weak<Context>, pid: &Pid) -> Option<PathBuf> {
     let handle = unsafe {
         OpenProcess(
             PROCESS_QUERY_LIMITED_INFORMATION,
@@ -82,7 +71,7 @@ pub fn exe(ctx: Weak<Context>, pid: &RawPid) -> Option<PathBuf> {
     result
 }
 
-pub fn cmdline(_ctx: Weak<Context>, _pid: &RawPid) -> Option<String> {
+pub fn cmdline(_ctx: Weak<Context>, _pid: &Pid) -> Option<String> {
     // This is a simplified implementation for Windows
     // In a real implementation, we would need to use the Windows API to get the command line
     // For now, we'll just return None

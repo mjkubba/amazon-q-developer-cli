@@ -1,118 +1,83 @@
-# Windows Port Implementation Summary
+# Windows Port for Amazon Q CLI
+
+This document summarizes the work done to port the Amazon Q CLI to Windows.
 
 ## Overview
 
-This document summarizes the work done to port the Amazon Q CLI to Windows. The port focused on ensuring that the core functionality of the CLI works on Windows, with special attention to platform-specific differences in file paths, process handling, signal handling, and terminal interaction.
+The Amazon Q CLI was originally developed for Unix-based systems (macOS and Linux). This port adds Windows support, allowing users to run the CLI on Windows systems.
 
 ## Key Changes
 
-### Platform Abstraction Layers
+### Platform Abstraction
 
-1. **Input Handling**
-   - Created a platform-agnostic `InputHandler` trait
-   - Implemented Windows-specific input handling using rustyline
-   - Ensured proper terminal interaction on Windows
-
-2. **Process Execution**
-   - Created a platform-agnostic `ProcessExecutor` trait
-   - Implemented Windows-specific process execution using `cmd.exe`
-   - Added proper error handling for Windows process operations
-
-3. **Signal Handling**
-   - Created a platform-agnostic `SignalHandler` trait
-   - Implemented Windows-specific signal handling for Ctrl+C
-   - Fixed async/await issues with Windows signal handling
-
-4. **Terminal Handling**
-   - Created a platform-agnostic `TerminalHandler` trait
-   - Implemented Windows-specific terminal handling using the Windows Console API
-   - Added support for colors, cursor movement, and text attributes on Windows
-
-### Directory Structure
-
-1. **File Paths**
-   - Updated directory structure to use Windows-specific paths
-   - Implemented proper handling of Windows environment variables
-   - Fixed path separators and special directory locations
-
-2. **Configuration Files**
-   - Updated configuration file locations to use Windows standards
-   - Ensured proper permissions for reading/writing config files
-   - Fixed path handling for user data and cache directories
-
-### Process Management
-
-1. **Process Creation**
-   - Implemented Windows-specific process creation
-   - Added proper error handling for Windows process operations
-   - Fixed issues with process group handling
-
-2. **Process Termination**
+1. **Process Management**
    - Implemented Windows-specific process termination using the Windows API
-   - Added proper error handling for Windows process termination
-   - Fixed issues with process cleanup on exit
+   - Fixed process ID handling for Windows
 
-### Build System
+2. **Terminal Handling**
+   - Added Windows Console API support for terminal operations
+   - Implemented proper cursor visibility control
 
-1. **Dependencies**
-   - Added Windows-specific dependencies
-   - Made Unix-specific dependencies conditional
-   - Fixed build script issues for Windows
+3. **Directory Structure**
+   - Added Windows-specific paths for configuration and data directories
+   - Fixed path handling to be Windows-compatible
 
-2. **Error Handling**
-   - Fixed Windows-specific error handling
-   - Ensured proper error messages on Windows
-   - Added fallbacks for unsupported features
+4. **Build System**
+   - Modified build scripts to handle Windows-specific requirements
+   - Added fallback mechanisms for tools that might not be available on Windows
 
-## Testing
+### Specific Fixes
 
-The Windows port has been tested on Windows 10 and Windows 11. The following functionality has been verified:
+1. **Process Info Module**
+   - Added Windows-specific implementation for process information retrieval
+   - Fixed BOOL handling in Windows API calls
 
-- Basic CLI commands (`q --help`, `q chat`)
-- Terminal interaction
-- File system operations
-- Process execution
-- Signal handling (Ctrl+C)
-- Terminal colors and formatting
+2. **Directory Handling**
+   - Made directory handling functions platform-aware
+   - Added conditional compilation for Unix-specific features
+
+3. **MCP Client**
+   - Fixed server process ID handling for Windows
+   - Fixed type inference issues with Option types
+
+4. **Protobuf Handling**
+   - Added Windows-specific protoc handling
+   - Added fallback to system protoc when not available
 
 ## Known Issues
 
-1. **Terminal Compatibility**
-   - Some advanced terminal features may not work in all Windows terminals
-   - Need to test with different terminal emulators (PowerShell, CMD, Windows Terminal)
+1. **Full Workspace Build**
+   - The full workspace build still has some issues, but the main binary (chat_cli) builds and runs correctly
+   - The fig_proto crate has issues with protoc on Windows
 
-2. **File System Permissions**
-   - Some file system operations may require elevated permissions on Windows
-   - Need to add proper error handling for permission issues
-
-3. **Unicode Support**
-   - Some Unicode characters may not display correctly in all Windows terminals
-   - Need to test with different terminal emulators and encodings
+2. **Test MCP Server**
+   - There are filename collisions between test_mcp_server binaries in different crates
 
 ## Future Work
 
 1. **Windows Installer**
-   - Create a proper Windows installer package
-   - Add registry entries for integration with Windows
-   - Add Start Menu shortcuts
+   - Create a proper Windows installer package for easy distribution
 
-2. **Windows-specific Features**
-   - Add Windows-specific features (e.g., integration with PowerShell)
-   - Improve Windows terminal support
-   - Add Windows-specific error handling
+2. **Fix Remaining Warnings**
+   - Address the remaining warnings in the codebase
 
-3. **Performance Optimization**
-   - Optimize performance on Windows
-   - Reduce startup time
-   - Improve file system operations
+3. **Improve Error Handling**
+   - Add more detailed error messages for Windows-specific errors
 
-4. **Testing Framework**
-   - Add Windows-specific tests
-   - Ensure CI/CD pipeline runs tests on Windows
-   - Add integration tests for Windows-specific features
+4. **Fix Full Workspace Build**
+   - Resolve the remaining issues in the full workspace build
 
-## Conclusion
+## Testing
 
-The Windows port of the Amazon Q CLI is now functional and can be used for basic operations. The core functionality works as expected, and the CLI can be built and run on Windows systems. Further work is needed to improve the user experience and add Windows-specific features, but the foundation is solid.
+The Windows port has been tested on Windows 10 and Windows 11 systems. The following functionality has been verified:
 
-🤖 Assisted by Amazon Q Developer
+1. **Basic Commands**
+   - `q --help` - Shows help information
+   - `q --version` - Shows version information
+
+2. **Chat Functionality**
+   - `q chat` - Starts a chat session with Amazon Q
+
+## Contributors
+
+This Windows port was developed with assistance from Amazon Q Developer.

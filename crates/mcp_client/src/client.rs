@@ -228,10 +228,26 @@ where
         }
         
         #[cfg(windows)]
-        if let Some(_process_id) = self.server_process_id {
-            // On Windows, we would use a different approach to terminate the process
-            // For now, we'll just log that we're not implementing this on Windows
-            tracing::warn!("Process termination not implemented on Windows");
+        if let Some(process_id) = self.server_process_id {
+            // On Windows, we use the Windows API to terminate the process
+            use windows::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+            use windows::Win32::Foundation::{BOOL, CloseHandle};
+            
+            unsafe {
+                // Open the process with termination rights
+                let process_handle = OpenProcess(PROCESS_TERMINATE, false, process_id);
+                if let Ok(handle) = process_handle {
+                    if !handle.is_invalid() {
+                        // Terminate the process with exit code 1
+                        let _ = TerminateProcess(handle, 1);
+                        let _ = CloseHandle(handle);
+                    } else {
+                        tracing::warn!("Failed to open process for termination: invalid handle");
+                    }
+                } else {
+                    tracing::warn!("Failed to open process for termination: {:?}", process_handle.err());
+                }
+            }
         }
     }
 }

@@ -5,7 +5,7 @@ use std::sync::Weak;
 use ::windows::Win32::Foundation::{
     CloseHandle,
     MAX_PATH,
-    // BOOL is unused, remove it
+    BOOL,
 };
 use ::windows::Win32::System::Threading::{
     GetCurrentProcessId,
@@ -66,7 +66,7 @@ pub fn exe(_ctx: Weak<Context>, pid: &Pid) -> Option<PathBuf> {
         match success {
             Ok(success_bool) => {
                 // Check if the BOOL value is true (non-zero)
-                if success_bool.as_bool() {
+                if success_bool.is_ok() {
                     let path = CStr::from_ptr(process_name.as_ptr() as *const _)
                         .to_string_lossy()
                         .into_owned();

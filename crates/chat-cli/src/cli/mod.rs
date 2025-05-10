@@ -13,6 +13,11 @@ use std::io::{
 };
 use std::process::ExitCode;
 
+use crate::logging::{
+    LogArgs,
+    initialize_logging,
+};
+
 use anstream::{
     eprintln,
     println,
@@ -35,10 +40,7 @@ use tracing::{
 };
 
 use self::user::RootUserSubcommand;
-use crate::logging::{
-    LogArgs,
-    initialize_logging,
-};
+
 use crate::telemetry::send_cli_subcommand_executed;
 use crate::util::directories::logs_dir;
 use crate::util::{

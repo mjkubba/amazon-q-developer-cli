@@ -58,7 +58,15 @@ fn download_protoc() {
 
     // On Windows, use the locally installed protoc instead of downloading
     if cfg!(target_os = "windows") {
-        // Check if protoc is available in PATH
+        // First, check for protoc in the specific location ../protobuf/bin/protoc.exe
+        let protoc_path = std::path::PathBuf::from("../../../protobuf/bin/protoc.exe");
+        if protoc_path.exists() {
+            println!("cargo:warning=Using protoc from ../protobuf/bin/protoc.exe");
+            std::env::set_var("PROTOC", protoc_path);
+            return;
+        }
+        
+        // Next, check if protoc is available in PATH
         if let Ok(output) = Command::new("protoc").arg("--version").output() {
             if output.status.success() {
                 // Use the locally installed protoc
@@ -69,8 +77,12 @@ fn download_protoc() {
             }
         }
         
-        // On Windows, we'll try to use the protoc from the system
-        println!("cargo:warning=No protoc found in PATH. Setting PROTOC_NO_VENDOR=1 to use system protoc.");
+        // If we can't find protoc, print a more helpful error message
+        println!("cargo:warning=No protoc found in ../protobuf/bin/protoc.exe or PATH.");
+        println!("cargo:warning=Please ensure protoc is installed and available.");
+        
+        // Try to use the system protoc as a last resort
+        println!("cargo:warning=Setting PROTOC_NO_VENDOR=1 to use system protoc.");
         std::env::set_var("PROTOC_NO_VENDOR", "1");
         return;
     }

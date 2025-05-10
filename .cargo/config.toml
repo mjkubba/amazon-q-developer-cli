@@ -1,0 +1,2 @@
+[target.'cfg(windows)']
+rustflags = ["-C", "link-args=/STACK:8388608"]  # Increase stack size to 8MB for Windows
